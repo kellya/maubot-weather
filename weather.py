@@ -1,18 +1,29 @@
-from typing import Optional
-from time import time
-from html import escape
+"""bot do things"""
+
 import requests
-
-from mautrix.types import TextMessageEventContent, MessageType, Format, RelatesTo, RelationType
-
 from maubot import Plugin, MessageEvent
 from maubot.handlers import command
+from typing import Type
+from mautrix.util.config import BaseProxyConfig, ConfigUpdateHelper
+
+
+class Config(BaseProxyConfig):
+    def do_update(self, helper: ConfigUpdateHelper) -> None:
+        helper.copy("show_link")
 
 
 class WeatherBot(Plugin):
+    async def start(self) -> None:
+        await super().start()
+        self.config.load_and_update()
+
+    @classmethod
+    def get_config_class(cls) -> Type[BaseProxyConfig]:
+        return Config
+
     @command.new("weather", help="Get the weather")
     @command.argument("location", pass_raw=True)
-    async def weather_handler(self, evt: MessageEvent, location="") -> None:
+    async def weather_handler(self, evt: MessageEvent, location=None) -> None:
         if location and location == "help":
             await evt.respond('''
                           Uses wttr.in to get the weather and respond. If you
@@ -26,13 +37,16 @@ class WeatherBot(Plugin):
                           !weather SFO
                           ''')
         elif location:
-            await evt.respond(
-                requests.get(f'http://wttr.in/{location}?format=3').text
-                + f'[(wttr.in)](http://wttr.in/{location})'
-            )
-
+            weather = requests.get(f'http://wttr.in/{location}?format=3').text
+            link = f'[(wttr.in)](http://wttr.in/{location})'
+            message = weather
+            if self.config["show_link"]:
+                message += link
+            await evt.respond(message)
         else:
-            await evt.respond(
-                requests.get('http://wttr.in?format=3').text
-                + f'[(wttr.in)](http://wttr.in)'
-            )
+            weather = requests.get('http://wttr.in?format=3').text
+            link = '[(wttr.in)](http://wttr.in/)'
+            message = weather
+            if self.config["show_link"]:
+                message += link
+            await evt.respond(message)

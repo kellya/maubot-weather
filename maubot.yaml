@@ -1,6 +1,6 @@
 maubot: 0.1.0
-id: com.arachnitch.weather
-version: 0.0.8
+id: com.arachnitech.weather
+version: 0.0.9
 license: MIT
 modules:
 - weather

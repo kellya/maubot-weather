@@ -27,6 +27,12 @@ class WeatherBot(Plugin):
                           ''')
         elif location:
             await evt.respond(
-                requests.get(f'http://wttr.in/{location}?format=3').text)
+                requests.get(f'http://wttr.in/{location}?format=3').text
+                + f'[(wttr.in)](http://wttr.in/{location})'
+            )
+
         else:
-            await evt.respond(requests.get('http://wttr.in?format=3').text)
+            await evt.respond(
+                requests.get('http://wttr.in?format=3').text
+                + f'[(wttr.in)](http://wttr.in)'
+            )

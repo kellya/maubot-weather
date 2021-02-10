@@ -17,8 +17,8 @@ clean:
 release: build
 	#Figure out what the last/most recent build is
 	$(eval LATEST = $(shell ls -t1 ${BUILDDIR}/*|head -n1))
-	@echo "Sending $(LATEST) to github"
-	${GH} release create  $(LATEST)
+	$(eval TAG = $(shell git describe --abbrev=0))
+	@echo "Sending $(TAG) to github"
+	${GH} release create $(TAG) $(LATEST)
 
 .PHONY: dir clean release
-

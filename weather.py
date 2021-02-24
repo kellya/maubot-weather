@@ -1,6 +1,5 @@
 """bot do things"""
 
-import requests
 from maubot import Plugin, MessageEvent
 from maubot.handlers import command
 from typing import Type
@@ -39,7 +38,8 @@ class WeatherBot(Plugin):
                           !weather SFO
                           ''')
         elif location:
-            weather = requests.get(f'http://wttr.in/{location}?format=3').text
+            rsp = await self.http.get(f'http://wttr.in/{location}?format=3')
+            weather = rsp.text()
             link = f'[(wttr.in)](http://wttr.in/{location})'
             message = weather
             if self.config["show_link"]:
@@ -48,7 +48,8 @@ class WeatherBot(Plugin):
         else:
             if self.config["default_location"]:
                 location=self.config["default_location"]
-            weather = requests.get(f'http://wttr.in/{location}?format=3').text
+            rsp = await self.http.get(f'http://wttr.in/{location}?format=3')
+            weather = rsp.text()
             link = f'[(wttr.in)](http://wttr.in/{location})'
             message = weather
             if self.config["show_link"]:

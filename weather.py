@@ -39,7 +39,7 @@ class WeatherBot(Plugin):
                           ''')
         elif location:
             rsp = await self.http.get(f'http://wttr.in/{location}?format=3')
-            weather = rsp.text()
+            weather = await rsp.text()
             link = f'[(wttr.in)](http://wttr.in/{location})'
             message = weather
             if self.config["show_link"]:
@@ -49,7 +49,7 @@ class WeatherBot(Plugin):
             if self.config["default_location"]:
                 location=self.config["default_location"]
             rsp = await self.http.get(f'http://wttr.in/{location}?format=3')
-            weather = rsp.text()
+            weather = await rsp.text()
             link = f'[(wttr.in)](http://wttr.in/{location})'
             message = weather
             if self.config["show_link"]:

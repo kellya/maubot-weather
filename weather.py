@@ -4,6 +4,7 @@ from maubot import Plugin, MessageEvent
 from maubot.handlers import command
 from typing import Type
 from mautrix.util.config import BaseProxyConfig, ConfigUpdateHelper
+from yarl import URL
 
 
 class Config(BaseProxyConfig):
@@ -40,7 +41,7 @@ class WeatherBot(Plugin):
         elif location:
             rsp = await self.http.get(f'http://wttr.in/{location}?format=3')
             weather = await rsp.text()
-            link = f'[(wttr.in)](http://wttr.in/{location})'
+            link = f'[(wttr.in)]({URL("https://wttr.in") / location})'
             message = weather
             if self.config["show_link"]:
                 message += link
@@ -50,7 +51,7 @@ class WeatherBot(Plugin):
                 location=self.config["default_location"]
             rsp = await self.http.get(f'http://wttr.in/{location}?format=3')
             weather = await rsp.text()
-            link = f'[(wttr.in)](http://wttr.in/{location})'
+            link = f'[(wttr.in)]({URL("https://wttr.in") / location})'
             message = weather
             if self.config["show_link"]:
                 message += link

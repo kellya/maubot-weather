@@ -1,19 +1,23 @@
 """bot do things"""
 
+from typing import Type
 from maubot import Plugin, MessageEvent
 from maubot.handlers import command
-from typing import Type
 from mautrix.util.config import BaseProxyConfig, ConfigUpdateHelper
 from yarl import URL
 
 
 class Config(BaseProxyConfig):
+    """Configuration class"""
+
     def do_update(self, helper: ConfigUpdateHelper) -> None:
         helper.copy("show_link")
         helper.copy("default_location")
 
 
 class WeatherBot(Plugin):
+    """maubot plugin class to get the weather and respond in a chat"""
+
     async def start(self) -> None:
         await super().start()
         self.config.load_and_update()
@@ -25,7 +29,9 @@ class WeatherBot(Plugin):
     @command.new("weather", help="Get the weather")
     @command.argument("location", pass_raw=True)
     async def weather_handler(self, evt: MessageEvent, location=None) -> None:
-        # This is a mess of redundancy that needs cleaned up, but it is working
+        """Listens for !weather and returns a message with the result of
+        a call to wttr.in for the location specified by !weather <location>
+        or by the config file if no location is given"""
         if location and location == "help":
             await evt.respond(
                 """

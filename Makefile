@@ -14,6 +14,9 @@ dir:
 clean:
 	rm -rf $(BUILDDIR)
 
+pylint:
+	pylint weather.py
+
 release: build
 	#Figure out what the last/most recent build is
 	$(eval LATEST = $(shell ls -t1 ${BUILDDIR}/*|head -n1))
@@ -21,4 +24,4 @@ release: build
 	@echo "Sending $(TAG) to github"
 	${GH} release create $(TAG) $(LATEST)
 
-.PHONY: dir clean release build
+.PHONY: dir clean release build pylint

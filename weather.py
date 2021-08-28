@@ -27,7 +27,8 @@ class WeatherBot(Plugin):
     async def weather_handler(self, evt: MessageEvent, location=None) -> None:
         # This is a mess of redundancy that needs cleaned up, but it is working
         if location and location == "help":
-            await evt.respond('''
+            await evt.respond(
+                """
                           Uses wttr.in to get the weather and respond. If you
                           don't specify a location, it will use the IP address
                           of the server to figure out what the location is.
@@ -37,9 +38,10 @@ class WeatherBot(Plugin):
 
                           or by Airport Code
                           !weather SFO
-                          ''')
+                          """
+            )
         elif location:
-            rsp = await self.http.get(f'http://wttr.in/{location}?format=3')
+            rsp = await self.http.get(f"http://wttr.in/{location}?format=3")
             weather = await rsp.text()
             link = f'[(wttr.in)]({URL("https://wttr.in") / location})'
             message = weather
@@ -48,11 +50,19 @@ class WeatherBot(Plugin):
             await evt.respond(message)
         else:
             if self.config["default_location"]:
-                location=self.config["default_location"]
-            rsp = await self.http.get(f'http://wttr.in/{location}?format=3')
+                location = self.config["default_location"]
+            rsp = await self.http.get(f"http://wttr.in/{location}?format=3")
             weather = await rsp.text()
             link = f'[(wttr.in)]({URL("https://wttr.in") / location})'
             message = weather
             if self.config["show_link"]:
                 message += link
+            if weather.startswith("Unknown location; please try"):
+                message += (
+                    "Note: "
+                    "An 'unknown location' likely indicates "
+                    "an issue with wttr.in. obtaining geolocation information. "
+                    "This issue will probably resolve itself, so sit "
+                    "tight and look out the window until it does"
+                )
             await evt.respond(message)

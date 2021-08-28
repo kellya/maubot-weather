@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "maubot-weather"
+version = "0.0.15"
+description = "A maubot bot to get the weather from wttr.in and post to a matrix channel"
+authors = ["Alex Kelly <kellya@arachnitech.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+maubot = "^0.1.2"
+semantic-release = "^0.1.0"
+
+[tool.poetry.dev-dependencies]
+PyInquirer = "^1.0.3"
+semantic-release = "^0.1.0"
+python-semantic-release = "^7.19.1"
+auto-changelog = "^0.5.3"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.semantic_release]
+version_variable = [
+    "maubot.yaml:version",
+    "pyproject.toml:version"
+]

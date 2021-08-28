@@ -21,4 +21,4 @@ release: build
 	@echo "Sending $(TAG) to github"
 	${GH} release create $(TAG) $(LATEST)
 
-.PHONY: dir clean release
+.PHONY: dir clean release build

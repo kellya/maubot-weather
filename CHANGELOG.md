@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.2.1 (2021-08-29)
+
+#### Fixes
+
+* correct space to plus in location
+
+Full set of changes: [`v0.2.0...v0.2.1`](https://github.com/kellya/maubot-weather/compare/v0.2.0...v0.2.1)
+
+## v0.2.0 (2021-08-29)
+
+#### New Features
+
+* add command to get the lunar phase
+#### Refactorings
+
+* move weather into its own module to clean up basedir and make future expansion easier
+
+Full set of changes: [`v0.1.0...v0.2.0`](https://github.com/kellya/maubot-weather/compare/v0.1.0...v0.2.0)
+
 ## v0.1.0 (2021-08-29)
 
 #### New Features

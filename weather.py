@@ -67,8 +67,27 @@ class WeatherBot(Plugin):
                 message += (
                     "Note: "
                     "An 'unknown location' likely indicates "
-                    "an issue with wttr.in. obtaining geolocation information. "
+                    "an issue with wttr.in obtaining geolocation information. "
                     "This issue will probably resolve itself, so sit "
                     "tight and look out the window until it does"
                 )
             await evt.respond(message)
+            wttr_url = "http://wttr.in"
+            wttr_location = location.replace(", ", "_")
+            wttr_location = location.replace(" ", "_")
+            wttr = f"{wttr_url}/{wttr_location}.png"
+            resp = await self.http.get(wttr)
+            if resp.status == 200:
+                data = await resp.read()
+                filename = "weather.png"
+                uri = await self.client.upload_media(
+                    data, mime_type="image/png", filename="filename"
+                )
+                await evt.respond(f"wttr_url: {wttr}")
+                await self.client.send_image(
+                    evt.room_id,
+                    url=uri,
+                    file_name=filename,
+                )
+            else:
+                evt.respond("error getting location " + wttr)

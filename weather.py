@@ -1,4 +1,4 @@
-"""bot do things"""
+""" maubot to get the weather from wttr.in and post in matrix chat """
 
 from typing import Type
 from maubot import Plugin, MessageEvent
@@ -13,6 +13,7 @@ class Config(BaseProxyConfig):
     def do_update(self, helper: ConfigUpdateHelper) -> None:
         helper.copy("show_link")
         helper.copy("default_location")
+        helper.copy("show_image")
 
 
 class WeatherBot(Plugin):
@@ -58,14 +59,13 @@ class WeatherBot(Plugin):
             message += link
         if weather.startswith("Unknown location; please try"):
             message += (
-                "Note: "
+                " | Note: "
                 "An 'unknown location' likely indicates "
                 "an issue with wttr.in obtaining geolocation information. "
                 "This issue will probably resolve itself, so sit "
                 "tight and look out the window until it does"
             )
         await evt.respond(message)
-        # TODO: maybe regex these things out instead of multiple replaces
         if self.config["show_image"]:
             wttr_url = "http://wttr.in"
             wttr_location = location.replace(", ", "_")

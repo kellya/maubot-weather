@@ -27,7 +27,7 @@ class WeatherBot(Plugin):
     def get_config_class(cls) -> Type[BaseProxyConfig]:
         return Config
 
-    @command.new("weather", help="Get the weather")
+    @command.new(name="weather", help="Get the weather")
     @command.argument("location", pass_raw=True)
     async def weather_handler(self, evt: MessageEvent, location=None) -> None:
         """Listens for !weather and returns a message with the result of
@@ -51,8 +51,8 @@ class WeatherBot(Plugin):
             if self.config["default_location"]:
                 location = self.config["default_location"]
 
-        rsp = await self.http.get(f"http://wttr.in/{location}?format=3")
-        weather = await rsp.text()
+        resp = await self.http.get(f"http://wttr.in/{location}?format=3")
+        weather = await resp.text()
         message = weather
         if self.config["show_link"]:
             link = f'[(wttr.in)]({URL("https://wttr.in") / location})'
@@ -84,4 +84,15 @@ class WeatherBot(Plugin):
                     file_name=filename,
                 )
             else:
-                evt.respond("error getting location " + wttr)
+                await evt.respond("error getting location " + wttr)
+
+    @command.new(name="moon", help="Get the moon phase")
+    async def moon_phase_handler(
+        self,
+        evt: MessageEvent,
+    ) -> None:
+        """Get the lunar phase from wttr.in and respond in chat"""
+        evt.respond("getting moon phase")
+        resp = await self.http.get("http://wttr.in/Moon?format=%m")
+        moon_phase = await resp.text()
+        await evt.respond(f"Moon Phase: {moon_phase}")

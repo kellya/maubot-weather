@@ -46,32 +46,27 @@ class WeatherBot(Plugin):
                           !weather SFO
                           """
             )
-        elif location:
-            rsp = await self.http.get(f"http://wttr.in/{location}?format=3")
-            weather = await rsp.text()
-            link = f'[(wttr.in)]({URL("https://wttr.in") / location})'
-            message = weather
-            if self.config["show_link"]:
-                message += link
-            await evt.respond(message)
-        else:
+        elif not location:
             if self.config["default_location"]:
                 location = self.config["default_location"]
-            rsp = await self.http.get(f"http://wttr.in/{location}?format=3")
-            weather = await rsp.text()
+
+        rsp = await self.http.get(f"http://wttr.in/{location}?format=3")
+        weather = await rsp.text()
+        message = weather
+        if self.config["show_link"]:
             link = f'[(wttr.in)]({URL("https://wttr.in") / location})'
-            message = weather
-            if self.config["show_link"]:
-                message += link
-            if weather.startswith("Unknown location; please try"):
-                message += (
-                    "Note: "
-                    "An 'unknown location' likely indicates "
-                    "an issue with wttr.in obtaining geolocation information. "
-                    "This issue will probably resolve itself, so sit "
-                    "tight and look out the window until it does"
-                )
-            await evt.respond(message)
+            message += link
+        if weather.startswith("Unknown location; please try"):
+            message += (
+                "Note: "
+                "An 'unknown location' likely indicates "
+                "an issue with wttr.in obtaining geolocation information. "
+                "This issue will probably resolve itself, so sit "
+                "tight and look out the window until it does"
+            )
+        await evt.respond(message)
+        # TODO: maybe regex these things out instead of multiple replaces
+        if self.config["show_image"]:
             wttr_url = "http://wttr.in"
             wttr_location = location.replace(", ", "_")
             wttr_location = location.replace(" ", "_")
@@ -83,7 +78,6 @@ class WeatherBot(Plugin):
                 uri = await self.client.upload_media(
                     data, mime_type="image/png", filename="filename"
                 )
-                await evt.respond(f"wttr_url: {wttr}")
                 await self.client.send_image(
                     evt.room_id,
                     url=uri,

@@ -91,16 +91,29 @@ class WeatherBot(Plugin):
         self,
         evt: MessageEvent,
     ) -> None:
-        """Get the lunar phase from wttr.in and respond in chat"""
-        evt.respond("getting moon phase")
-        resp = await self.http.get("http://wttr.in/Moon?format=%m")
-        resp2 = await self.http.get("http://wttr.in/Columbus?format=j1")
-        moon_phase = await resp.text()
-        moon_phase_json = await resp2.json()
-        moon_phase_desc = moon_phase_json["weather"][0]["astronomy"][0]["moon_phase"]
+        """Get the lunar phase from wttr.in json and respond in chat"""
+        # Associate the utf-8 character with the name of the phase
+        phase_char = {
+            "new moon": "🌑",
+            "waxing crescent": "🌒",
+            "first quarter": "🌓",
+            "waxing gibbous": "🌔",
+            "full moon": "🌕",
+            "waning gibbous": "🌖",
+            "last quarter": "🌗",
+            "waning crescent": "🌘",
+        }
+
+        resp = await self.http.get("http://wttr.in/Columbus?format=j1")
+        # get the JSON data
+        moon_phase_json = await resp.json()
+        # pull out the "moon_phase"
+        moon_phase = moon_phase_json["weather"][0]["astronomy"][0]["moon_phase"]
+        # get the character associated with the current phase
+        moon_phase_char = phase_char[moon_phase.lower()]
         moon_phase_illum = moon_phase_json["weather"][0]["astronomy"][0][
             "moon_illumination"
         ]
         await evt.respond(
-            f"{moon_phase} {moon_phase_desc} ({moon_phase_illum}% Illuminated)"
+            f"{moon_phase_char} {moon_phase} ({moon_phase_illum}% Illuminated)"
         )

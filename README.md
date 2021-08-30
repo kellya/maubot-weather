@@ -1,4 +1,4 @@
-![build status](https://build.arachnitech.com/badges/maubot-weather.png) ![latest Release](https://img.shields.io/github/v/release/kellya/maubot-weather) ![Latest in dev](https://img.shields.io/github/v/tag/kellya/maubot-weather?label=latest%20%28dev%29)
+[![build status](https://build.arachnitech.com/badges/maubot-weather.png)](https://build.arachnitech.com/#/builders/2) [![latest Release](https://img.shields.io/github/v/release/kellya/maubot-weather)](https://github.com/kellya/maubot-weather/releases) [![Latest in dev](https://img.shields.io/github/v/tag/kellya/maubot-weather?label=latest%20%28dev%29)](https://github.com/kellya/maubot-weather/tree/develop)
 
 # weather
 A simple [maubot](https://github.com/maubot/maubot) (which was based on the echobot) that gets the weather from [wttr.in](http://wttr.in) and returns the text to the chat
@@ -40,6 +40,6 @@ I have built everything using poetry, so the easiest path is:
 
 ## Chat
 
-![chat](https://shields.io/matrix/maubot-weather:arachnitech.com.svg?server_fqdn=matrix.arachnitech.com)
+[![chat](https://shields.io/matrix/maubot-weather:arachnitech.com.svg?server_fqdn=matrix.arachnitech.com)](https://matrix.to/#/#maubot-weather:arachnitech.com)
 
 I have created a dedicated [#maubot-weather:arachnitech.com](https://matrix.to/#/#maubot-weather:arachnitech.com) channel.  I also follow the #maubot:maubot.xyz channel.

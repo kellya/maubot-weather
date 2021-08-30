@@ -14,20 +14,19 @@ A simple [maubot](https://github.com/maubot/maubot) (which was based on the echo
 ### !weather
 Entering `!weather` in the chat will display the default server location setting
 and display the single-line version of the weather from wttr.in.
-
-![image_weather_oneline]()
+   
+![oneline](https://raw.githubusercontent.com/kellya/maubot-weather/develop/docs/images/weather_oneline.png)
 
 If the `show_image` setting is `true` in the settings, the bot will return the
 png image of the current weather with the forecast
 
-
-![image_show_image_true]()
+![image_weather_oneline](https://raw.githubusercontent.com/kellya/maubot-weather/develop/docs/images/show_image_true.png)
 
 ### !moon
 Entering the `!moon` command in the chat will display a oneline version of the
 lunar phase:
 
-![image_moon]()
+![image_moon](https://raw.githubusercontent.com/kellya/maubot-weather/develop/docs/images/moon.png)
 
 
 ## Installation

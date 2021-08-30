@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.2.2 (2021-08-30)
+
+#### Fixes
+
+* rewrite the moon phase to only make one call to get json and generate the correct character instaed of making 2 calls
+#### Others
+
+* add changelog to auto-publish to github release
+* update changelog
+* add build status to badges
+* add build status to badges
+* add some badges to the doc page
+
+Full set of changes: [`v0.2.1...v0.2.2`](https://github.com/kellya/maubot-weather/compare/v0.2.1...v0.2.2)
+
 ## v0.2.1 (2021-08-29)
 
 #### Fixes

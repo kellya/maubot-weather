@@ -74,7 +74,7 @@ class WeatherBot(Plugin):
         await evt.respond(message)
         if self.config["show_image"]:
             wttr_url = "http://wttr.in"
-            wttr = f"{wttr_url}/{location}.png"
+            wttr = URL(f"{wttr_url}/{location}.png")
             resp = await self.http.get(wttr)
             if resp.status == 200:
                 data = await resp.read()
@@ -108,7 +108,7 @@ class WeatherBot(Plugin):
             "waning crescent": "🌘",
         }
 
-        resp = await self.http.get(f"http://wttr.in/{self.get_location}?format=j1")
+        resp = await self.http.get(URL(f"http://wttr.in/{self.get_location}?format=j1"))
         # get the JSON data
         moon_phase_json = await resp.json()
         # pull out the "moon_phase"

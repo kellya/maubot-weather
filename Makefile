@@ -22,6 +22,6 @@ release: build
 	$(eval LATEST = $(shell ls -t1 ${BUILDDIR}/*|head -n1))
 	$(eval TAG = $(shell git describe --tags --abbrev=0))
 	@echo "Sending $(TAG) to github"
-	${GH} release create $(TAG) $(LATEST)
+	${GH} release create -F CHANGELOG.md $(TAG) $(LATEST)
 
 .PHONY: dir clean release build pylint

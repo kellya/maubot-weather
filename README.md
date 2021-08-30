@@ -37,3 +37,8 @@ I have built everything using poetry, so the easiest path is:
 2. run `poetry shell`
 3. run `poetry install` to add all the dependent packages
 4. Make changes.
+
+## Chat
+
+![chat](https://shields.io/matrix/maubot-weather:arachnitech.com.svg?server_fqdn=matrix.arachnitech.com)
+I have created a dedicated [#maubot-weather:arachnitech.com](https://matrix.to/#/#maubot-weather:arachnitech.com) channel.  I also follow the #maubot:maubot.xyz channel.

@@ -15,7 +15,7 @@ clean:
 	rm -rf $(BUILDDIR)
 
 pylint:
-	pylint weather.py
+	pylint weather/weather.py
 
 release: build
 	#Figure out what the last/most recent build is

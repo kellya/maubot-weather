@@ -27,6 +27,14 @@ class WeatherBot(Plugin):
     def get_config_class(cls) -> Type[BaseProxyConfig]:
         return Config
 
+    def get_location(self, location=None) -> str:
+        """Return a cleaned-up location name"""
+        if not location:
+            location = self.config["default_location"]
+        location = location.replace(", ", "_")
+        location = location.replace(" ", "+")
+        return location
+
     @command.new(name="weather", help="Get the weather")
     @command.argument("location", pass_raw=True)
     async def weather_handler(self, evt: MessageEvent, location=None) -> None:
@@ -47,9 +55,7 @@ class WeatherBot(Plugin):
                           !weather SFO
                           """
             )
-        elif not location:
-            if self.config["default_location"]:
-                location = self.config["default_location"]
+        location = self.get_location(location)
 
         resp = await self.http.get(f"http://wttr.in/{location}?format=3")
         weather = await resp.text()
@@ -68,9 +74,7 @@ class WeatherBot(Plugin):
         await evt.respond(message)
         if self.config["show_image"]:
             wttr_url = "http://wttr.in"
-            wttr_location = location.replace(", ", "_")
-            wttr_location = location.replace(" ", "+")
-            wttr = f"{wttr_url}/{wttr_location}.png"
+            wttr = f"{wttr_url}/{location}.png"
             resp = await self.http.get(wttr)
             if resp.status == 200:
                 data = await resp.read()
@@ -104,7 +108,7 @@ class WeatherBot(Plugin):
             "waning crescent": "🌘",
         }
 
-        resp = await self.http.get("http://wttr.in/Columbus?format=j1")
+        resp = await self.http.get(f"http://wttr.in/{self.get_location}?format=j1")
         # get the JSON data
         moon_phase_json = await resp.json()
         # pull out the "moon_phase"

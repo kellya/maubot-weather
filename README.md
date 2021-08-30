@@ -3,6 +3,33 @@
 # weather
 A simple [maubot](https://github.com/maubot/maubot) (which was based on the echobot) that gets the weather from [wttr.in](http://wttr.in) and returns the text to the chat
 
+## Usage
+* `!weather` - Reply with the weather based on the default config value
+* `!weather <location>` - Reply with the location for the specified <location> where
+<location> can be an airport code, or a city
+* `!moon` - Display lunar phase information
+
+## Examples
+
+### !weather
+Entering `!weather` in the chat will display the default server location setting
+and display the single-line version of the weather from wttr.in.
+
+![image_weather_oneline]()
+
+If the `show_image` setting is `true` in the settings, the bot will return the
+png image of the current weather with the forecast
+
+
+![image_show_image_true]()
+
+### !moon
+Entering the `!moon` command in the chat will display a oneline version of the
+lunar phase:
+
+![image_moon]()
+
+
 ## Installation
 
 1. Download the current `com.arachnitech.weather-vX.X.X.mbp` file from the
@@ -12,12 +39,6 @@ A simple [maubot](https://github.com/maubot/maubot) (which was based on the echo
 
    1. In your maubot manager, click the plus sign next to plugins
    2. Upload the plugin you downloaded from step 1 above
-
-## Usage
-* `!weather` - Reply with the weather based on the default config value
-* `!weather <location>` - Reply with the location for the specified <location> where
-<location> can be an airport code, or a city
-* `!moon` - Display lunar phase information
 
 ## Upgrading
 

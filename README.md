@@ -31,7 +31,7 @@ lunar phase:
 
 ## Installation
 
-1. Download the current `com.arachnitech.weather-vX.X.X.mbp` file from the
+1. Download the current `com.arachnitech.weather-vX.Y.Z.mbp` file from the
    [Releases](https://github.com/kellya/maubot-weather/releases) page.
 2. Follow the [Maubot](https://docs.mau.fi/maubot/usage/basic.html) instructions
    which boils down to:

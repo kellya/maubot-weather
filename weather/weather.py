@@ -29,32 +29,23 @@ class WeatherBot(Plugin):
 
     def get_location(self, location=None) -> str:
         """Return a cleaned-up location name"""
+        # using yarl kind of made this function useless, but I'm leaving it
+        # for now.
         if not location:
             location = self.config["default_location"]
-        location = location.replace(", ", "_")
-        location = location.replace(" ", "+")
         return location
 
-    @command.new(name="weather", help="Get the weather")
+    @command.new(
+        name="weather",
+        help="Get the weather",
+        require_subcommand=False,
+        arg_fallthrough=False,
+    )
     @command.argument("location", pass_raw=True)
     async def weather_handler(self, evt: MessageEvent, location=None) -> None:
         """Listens for !weather and returns a message with the result of
         a call to wttr.in for the location specified by !weather <location>
         or by the config file if no location is given"""
-        if location and location == "help":
-            await evt.respond(
-                """
-                          Uses wttr.in to get the weather and respond. If you
-                          don't specify a location, it will use the IP address
-                          of the server to figure out what the location is.
-
-                          Otherwise, you may specify the location by name:
-                          !weather Chicago
-
-                          or by Airport Code
-                          !weather SFO
-                          """
-            )
         location = self.get_location(location)
 
         resp = await self.http.get(f"http://wttr.in/{location}?format=3")
@@ -89,6 +80,33 @@ class WeatherBot(Plugin):
                 )
             else:
                 await evt.respond("error getting location " + wttr)
+
+    @weather_handler.subcommand(name="help", help="display help text")
+    async def show_help(self, evt: MessageEvent) -> None:
+        """Display general help information"""
+        await evt.respond(
+            """
+Uses wttr.in to get the weather and respond. If you don't specify a
+location, it will use the server setting for `default_location`
+
+Otherwise, you may specify the location by name:
+
+!weather Chicago
+
+or by Airport Code
+
+!weather SFO
+
+You may also get the lunar phase information by sending
+
+!moon
+                          """
+        )
+
+    @weather_handler.subcommand(name="show_default", help="show the default location")
+    async def get_default_location(self, evt: MessageEvent) -> None:
+        """Respond with the value of the default_location setting"""
+        await evt.respond(self.config["default_location"])
 
     @command.new(name="moon", help="Get the moon phase")
     async def moon_phase_handler(

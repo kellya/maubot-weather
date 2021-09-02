@@ -35,6 +35,24 @@ class WeatherBot(Plugin):
             location = self.config["default_location"]
         return location
 
+    async def post_image(self, location, evt):
+        wttr_url = "http://wttr.in"
+        wttr = URL(f"{wttr_url}/{location}.png")
+        resp = await self.http.get(wttr)
+        if resp.status == 200:
+            data = await resp.read()
+            filename = "weather.png"
+            uri = await self.client.upload_media(
+                data, mime_type="image/png", filename="filename"
+            )
+            await self.client.send_image(
+                evt.room_id,
+                url=uri,
+                file_name=filename,
+            )
+        else:
+            await evt.respond("error getting location " + wttr)
+
     @command.new(
         name="weather",
         help="Get the weather",
@@ -64,22 +82,7 @@ class WeatherBot(Plugin):
             )
         await evt.respond(message)
         if self.config["show_image"]:
-            wttr_url = "http://wttr.in"
-            wttr = URL(f"{wttr_url}/{location}.png")
-            resp = await self.http.get(wttr)
-            if resp.status == 200:
-                data = await resp.read()
-                filename = "weather.png"
-                uri = await self.client.upload_media(
-                    data, mime_type="image/png", filename="filename"
-                )
-                await self.client.send_image(
-                    evt.room_id,
-                    url=uri,
-                    file_name=filename,
-                )
-            else:
-                await evt.respond("error getting location " + wttr)
+            self.post_image(location, evt)
 
     @weather_handler.subcommand(name="help", help="display help text")
     async def show_help(self, evt: MessageEvent) -> None:

@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.2.3 (2021-08-30)
+
+#### Fixes
+
+* wrap all url calls with yarl.URL to sanitize the URLs passed
+#### Refactorings
+
+* move location to a fuction
+#### Docs
+
+* fix image urls in the examples section
+* add some examples to the readme
+#### Others
+
+* correct issue with the move into a subdir
+* remove __pycache__ from git
+
+Full set of changes: [`v0.2.2...v0.2.3`](https://github.com/kellya/maubot-weather/compare/v0.2.2...v0.2.3)
+
 ## v0.2.2 (2021-08-30)
 
 #### Fixes

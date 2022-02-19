@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "maubot-weather"
-version = "0.2.4"
+version = "0.2.3"
 description = "A maubot bot to get the weather from wttr.in and post to a matrix channel"
 authors = ["Alex Kelly <kellya@arachnitech.com>"]
 license = "MIT"

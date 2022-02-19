@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.2.4 (2022-02-18)
+
+#### Fixes
+
+* correct issue with location error response
+#### Docs
+
+* update changelong vor 0.2.3
+
+Full set of changes: [`v0.2.3...5916469`](https://github.com/kellya/maubot-weather/compare/v0.2.3...5916469)
+
 ## v0.2.3 (2021-08-30)
 
 #### Fixes

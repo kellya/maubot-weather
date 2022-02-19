@@ -88,7 +88,7 @@ class WeatherBot(Plugin):
                     file_name=filename,
                 )
             else:
-                await evt.respond("error getting location " + wttr)
+                await evt.respond(f"error getting location {location}")
 
     @command.new(name="moon", help="Get the moon phase")
     async def moon_phase_handler(

@@ -7,7 +7,22 @@ A simple [maubot](https://github.com/maubot/maubot) (which was based on the echo
 * `!weather` - Reply with the weather based on the default config value
 * `!weather <location>` - Reply with the location for the specified <location> where
 <location> can be an airport code, or a city
+* `!weather <location> u:[u|m|M]` - As above, but specify unit of measure (see
+    below)
 * `!moon` - Display lunar phase information
+
+### Units
+The unit is directly passed to the wttr.in, so the option specified must match
+what wttr.in expects.
+
+Valid units are as follows:
+
+u  - USCS (used by default in US)
+m  - metric (SI) (used by default everywhere except US)
+M  - metric (SI), but show wind speed in m/s
+
+(taken from https://github.com/chubin/wttr.in)
+
 
 ## Examples
 

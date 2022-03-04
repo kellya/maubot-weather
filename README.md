@@ -18,7 +18,9 @@ what wttr.in expects.
 Valid units are as follows:
 
 u  - USCS (used by default in US)
+
 m  - metric (SI) (used by default everywhere except US)
+
 M  - metric (SI), but show wind speed in m/s
 
 (taken from https://github.com/chubin/wttr.in)

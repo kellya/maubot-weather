@@ -1,3 +1,15 @@
+# Specify a location to use when just !weather is used
 default_location: Columbus, Oh
+
+# default units to use.  This is directly passed to wttr.in, so it must be one of:
+# m - metric (SI)
+# u - US units (USCS)
+# M - metric (SI), but wind in m/s
+# blank will automatically determin units based on source IP
+default_units:
+
+# show a link to the wttr.in page
 show_link: false
+
+# display the image of the forecast
 show_image: false

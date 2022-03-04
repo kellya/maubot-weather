@@ -14,6 +14,7 @@ class Config(BaseProxyConfig):
         helper.copy("show_link")
         helper.copy("default_location")
         helper.copy("show_image")
+        helper.copy("default_units")
 
 
 class WeatherBot(Plugin):
@@ -44,20 +45,38 @@ class WeatherBot(Plugin):
         if location and location == "help":
             await evt.respond(
                 """
-                          Uses wttr.in to get the weather and respond. If you
-                          don't specify a location, it will use the IP address
-                          of the server to figure out what the location is.
+                Uses wttr.in to get the weather and respond. If you
+                don't specify a location, it will use the IP address
+                of the server to figure out what the location is.
 
-                          Otherwise, you may specify the location by name:
-                          !weather Chicago
+                Otherwise, you may specify the location by name:
+                !weather Chicago
 
-                          or by Airport Code
-                          !weather SFO
-                          """
+                or by Airport Code
+                !weather SFO
+
+                The units may be specified with a location by adding u:<unit> to the end of the location like:
+                !weather Chicago u:m
+
+                Where <unit> is one of:
+                m = metric
+                u = US
+                M = metric, but wind in m/s
+                """
             )
-        location = self.get_location(location)
+        units = ""  # default to nothing so that response works even if default is unset
 
-        resp = await self.http.get(f"http://wttr.in/{location}?format=3")
+        if self.config["default_units"]:
+            # If units are specified in the config, use them
+            units = f"&{self.config['default_units']}"
+        if "u:" in location:
+            # If the location has units specified, attempt to use them
+            location, custom_unit = location.split("u:")
+            if custom_unit in ["u", "m", "M"]:
+                units = f"&{custom_unit}"
+        location = self.get_location(location.strip())
+
+        resp = await self.http.get(f"http://wttr.in/{location}?format=3{units}")
         weather = await resp.text()
         message = weather
         if self.config["show_link"]:

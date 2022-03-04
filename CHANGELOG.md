@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.3.0 (2022-03-04)
+
+#### New Features
+
+* Allow changing units of measure for reporting
+
+Full set of changes: [`v0.2.4...v0.3.0`](https://github.com/kellya/maubot-weather/compare/v0.2.4...v0.3.0)
+
 ## v0.2.4 (2022-02-18)
 
 #### Fixes
@@ -9,7 +17,7 @@
 
 * update changelong vor 0.2.3
 
-Full set of changes: [`v0.2.3...5916469`](https://github.com/kellya/maubot-weather/compare/v0.2.3...5916469)
+Full set of changes: [`v0.2.3...v0.2.4`](https://github.com/kellya/maubot-weather/compare/v0.2.3...v0.2.4)
 
 ## v0.2.3 (2021-08-30)
 

@@ -13,6 +13,7 @@ maubot = {extras = ["e2be"], version = "^0.2.0"}
 python-semantic-release = "^7.19.1"
 auto-changelog = "^0.5.3"
 pylint = "^2.10.2"
+MarkupSafe = "^2.1.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

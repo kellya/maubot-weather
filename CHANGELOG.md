@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.3.1 (2022-03-04)
+
+#### Fixes
+
+* correct the missing unit on image generation
+#### Docs
+
+* add linebreaks for units section
+* update readme with units info
+* update changelog
+
+Full set of changes: [`v0.3.0...v0.3.1`](https://github.com/kellya/maubot-weather/compare/v0.3.0...v0.3.1)
+
 ## v0.3.0 (2022-03-04)
 
 #### New Features

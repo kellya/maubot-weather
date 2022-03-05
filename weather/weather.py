@@ -93,7 +93,7 @@ class WeatherBot(Plugin):
         await evt.respond(message)
         if self.config["show_image"]:
             wttr_url = "http://wttr.in"
-            wttr = URL(f"{wttr_url}/{location}.png")
+            wttr = URL(f"{wttr_url}/{location}.png?{units}")
             resp = await self.http.get(wttr)
             if resp.status == 200:
                 data = await resp.read()

@@ -55,7 +55,8 @@ class WeatherBot(Plugin):
                 or by Airport Code
                 !weather SFO
 
-                The units may be specified with a location by adding u:<unit> to the end of the location like:
+                The units may be specified with a location by adding
+                u:<unit> to the end of the location like:
                 !weather Chicago u:m
 
                 Where <unit> is one of:

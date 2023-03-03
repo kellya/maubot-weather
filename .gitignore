@@ -1,4 +1,5 @@
-build
 *.mbp
-config.yaml
 **__pycache
+build
+config.yaml
+venv

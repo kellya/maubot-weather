@@ -1,6 +1,9 @@
-""" maubot to get the weather from wttr.in and post in matrix chat """
+""" Maubot to get the weather from wttr.in and post in matrix chat """
 
+from re import IGNORECASE, Match, search, sub
 from typing import Type
+from urllib.parse import urlencode
+
 from maubot import Plugin, MessageEvent
 from maubot.handlers import command
 from mautrix.util.config import BaseProxyConfig, ConfigUpdateHelper
@@ -18,7 +21,11 @@ class Config(BaseProxyConfig):
 
 
 class WeatherBot(Plugin):
-    """maubot plugin class to get the weather and respond in a chat"""
+    """Maubot plugin class to get the weather and respond in a chat."""
+
+    _service_url: str = "https://wttr.in"
+    _stored_location: str
+    _stored_units: str
 
     async def start(self) -> None:
         await super().start()
@@ -28,67 +35,20 @@ class WeatherBot(Plugin):
     def get_config_class(cls) -> Type[BaseProxyConfig]:
         return Config
 
-    def get_location(self, location=None) -> str:
-        """Return a cleaned-up location name"""
-        if not location:
-            location = self.config["default_location"]
-        location = location.replace(", ", "_")
-        location = location.replace(" ", "+")
-        return location
-
     @command.new(
-        name="weather", help="Get weather info",
+        name="weather", help="Get the weather",
         arg_fallthrough=False, require_subcommand=False
     )
     @command.argument("location", pass_raw=True)
-    async def weather_handler(self, evt: MessageEvent, location=None) -> None:
+    async def weather_handler(self, evt: MessageEvent, location: str) -> None:
         """Listens for `!weather` and returns a message with the result of
         a call to wttr.in for the location specified by `!weather <location>`
         or by the config file if no location is given"""
-        units = ""  # default to nothing so that response works even if default is unset
-
-        if self.config["default_units"]:
-            # If units are specified in the config, use them
-            units = f"&{self.config['default_units']}"
-        if "u:" in location:
-            # If the location has units specified, attempt to use them
-            location, custom_unit = location.split("u:")
-            if custom_unit in ["u", "m", "M"]:
-                units = f"&{custom_unit}"
-        location = self.get_location(location.strip())
-
-        resp = await self.http.get(f"http://wttr.in/{location}?format=3{units}")
-        weather = await resp.text()
-        message = weather
-        if self.config["show_link"]:
-            link = f'[(wttr.in)]({URL("https://wttr.in") / location})'
-            message += link
-        if weather.startswith("Unknown location; please try"):
-            message += (
-                " | Note: "
-                "An 'unknown location' likely indicates "
-                "an issue with wttr.in obtaining geolocation information. "
-                "This issue will probably resolve itself, so sit "
-                "tight and look out the window until it does"
-            )
-        await evt.respond(message)
-        if self.config["show_image"]:
-            wttr_url = "http://wttr.in"
-            wttr = URL(f"{wttr_url}/{location}.png?{units}")
-            resp = await self.http.get(wttr)
-            if resp.status == 200:
-                data = await resp.read()
-                filename = "weather.png"
-                uri = await self.client.upload_media(
-                    data, mime_type="image/png", filename="filename"
-                )
-                await self.client.send_image(
-                    evt.room_id,
-                    url=uri,
-                    file_name=filename,
-                )
-            else:
-                await evt.respond(f"error getting location {location}")
+        self._reset_stored_values()
+        self._location(location)
+        response = await self.http.get(self._url({"format": 3}))
+        await evt.respond(self._message(await response.text()))
+        await self._image(evt)
 
     @weather_handler.subcommand("help", help="Usage instructions")
     async def help(self, evt: MessageEvent) -> None:
@@ -129,8 +89,10 @@ class WeatherBot(Plugin):
             "last quarter": "🌗",
             "waning crescent": "🌘",
         }
-
-        resp = await self.http.get(URL(f"http://wttr.in/{self.get_location}?format=j1"))
+        self._reset_stored_values()
+        resp = await self.http.get(
+            self._base_url().update_query({"format": "j1"})
+        )
         # get the JSON data
         moon_phase_json = await resp.json()
         # pull out the "moon_phase"
@@ -142,4 +104,116 @@ class WeatherBot(Plugin):
         ]
         await evt.respond(
             f"{moon_phase_char} {moon_phase} ({moon_phase_illum}% Illuminated)"
+        )
+
+    def _base_url(self) -> URL:
+        return URL(self._service_url).with_path(self._location())
+
+    def _config_value(self, name: str) -> str:
+        return (
+            self.config[name].strip()
+            if self.config[name] is not None
+            else ""
+        )
+
+    async def _image(self, event: MessageEvent) -> None:
+        if self.config["show_image"] and self._stored_location:
+            response = await self.http.get(
+                URL(f"{self._base_url()}.png")
+                .update_query(self._options_querystring())
+            )
+
+            if response.status == 200:
+                data = await response.read()
+                filename = f"{self._stored_location}.png"
+                uri = await self.client.upload_media(
+                    data, mime_type="image/png", filename="filename"
+                )
+                await self.client.send_image(
+                    event.room_id, url=uri, file_name=filename
+                )
+            else:
+                await event.respond(
+                    f"error getting location {self._stored_location}"
+                )
+
+    def _location(self, location: str = "") -> str:
+        """Return a cleaned-up location name"""
+        if self._stored_location == "":
+            location = location.strip()
+            self._stored_location = (
+                location
+                if location
+                else self._config_value("default_location")
+            ).strip()
+            self._units()
+
+        return self._stored_location
+
+    def _message(self, content: str) -> str:
+        message: str = content
+
+        if self.config["show_link"]:
+            message += f"([wttr.in]({self._url()}))"
+
+        if content.startswith("Unknown location; please try"):
+            message += (
+                " | Note: "
+                "An 'unknown location' likely indicates "
+                "an issue with wttr.in obtaining geolocation information. "
+                "This issue will probably resolve itself, so sit "
+                "tight and look out the window until it does"
+            )
+
+        return message
+
+    def _options(self) -> dict[str, int | str]:
+        options: dict[str, int | str] = {}
+
+        if self._stored_language:
+            options["lang"] = self._stored_language
+
+        if self._stored_units:
+            options[self._stored_units] = ""
+
+        return options
+
+    def _options_querystring(
+        self, custom_options: dict[str, int | str] | None = None
+    ) -> str:
+        options = self._options()
+        options.update(custom_options if custom_options else {})
+
+        return sub(r'=(?:(?=&)|$)', '', urlencode(options))
+
+    def _reset_stored_values(self) -> None:
+        self._stored_language = ''
+        self._stored_location = ''
+        self._stored_units = ''
+
+    def _units(self) -> str:
+        if self._stored_units == "":
+            units = self._config_value("default_units")
+            location = self._stored_location
+
+            if "u:" in location:
+                match: Match[str] | None = search(
+                    r"(\bu: *(?!l:)(\S+))", location, IGNORECASE
+                )
+
+                if match is not None:
+                    matches = match.groups()
+                    units = matches[1]
+                    location = location.replace(matches[0], "").strip()
+
+            self._stored_location = location.strip()
+            self._stored_units = units.strip()
+
+        return self._stored_units
+
+    def _url(self, custom_options: dict[str, int | str] | None = None) -> str:
+        querystring = self._options_querystring(custom_options)
+
+        return (
+            f"{self._base_url()}" + (f"?{querystring}" if querystring else "")
         )

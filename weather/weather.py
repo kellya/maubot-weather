@@ -36,35 +36,15 @@ class WeatherBot(Plugin):
         location = location.replace(" ", "+")
         return location
 
-    @command.new(name="weather", help="Get the weather")
+    @command.new(
+        name="weather", help="Get weather info",
+        arg_fallthrough=False, require_subcommand=False
+    )
     @command.argument("location", pass_raw=True)
     async def weather_handler(self, evt: MessageEvent, location=None) -> None:
-        """Listens for !weather and returns a message with the result of
-        a call to wttr.in for the location specified by !weather <location>
+        """Listens for `!weather` and returns a message with the result of
+        a call to wttr.in for the location specified by `!weather <location>`
         or by the config file if no location is given"""
-        if location and location == "help":
-            await evt.respond(
-                """
-                Uses wttr.in to get the weather and respond. If you
-                don't specify a location, it will use the IP address
-                of the server to figure out what the location is.
-
-                Otherwise, you may specify the location by name:
-                !weather Chicago
-
-                or by Airport Code
-                !weather SFO
-
-                The units may be specified with a location by adding
-                u:<unit> to the end of the location like:
-                !weather Chicago u:m
-
-                Where <unit> is one of:
-                m = metric
-                u = US
-                M = metric, but wind in m/s
-                """
-            )
         units = ""  # default to nothing so that response works even if default is unset
 
         if self.config["default_units"]:
@@ -109,6 +89,28 @@ class WeatherBot(Plugin):
                 )
             else:
                 await evt.respond(f"error getting location {location}")
+
+    @weather_handler.subcommand("help", help="Usage instructions")
+    async def help(self, evt: MessageEvent) -> None:
+        """Return help message."""
+        await evt.respond(
+            "Get information about the weather from "
+            "[wttr.in](https://wttr.in).\n\n"
+            "If the location is not specified, the IP address will be used by "
+            "the server to figure out what the location is.\\\n"
+            "Otherwise, location can be specified by name:\\\n"
+            "`!weather Chicago`\\\n"
+            "or by Airport Code:\\\n"
+            "`!weather SFO`\n\n"
+            "Units may be specified by adding `u:<unit>` at the end of the "
+            "location like:\\\n"
+            "`!weather Chicago u:m`\\\n"
+            "where `<unit>` is one of:"
+            "\n\n"
+            "* `m`: metric;\n"
+            "* `u`: US;\n"
+            "* `M`: metric, but wind speed unit is m/s."
+        )
 
     @command.new(name="moon", help="Get the moon phase")
     async def moon_phase_handler(

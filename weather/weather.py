@@ -18,12 +18,14 @@ class Config(BaseProxyConfig):
         helper.copy("default_location")
         helper.copy("show_image")
         helper.copy("default_units")
+        helper.copy("default_language")
 
 
 class WeatherBot(Plugin):
     """Maubot plugin class to get the weather and respond in a chat."""
 
     _service_url: str = "https://wttr.in"
+    _stored_language: str
     _stored_location: str
     _stored_units: str
 
@@ -70,6 +72,13 @@ class WeatherBot(Plugin):
             "* `m`: metric;\n"
             "* `u`: US;\n"
             "* `M`: metric, but wind speed unit is m/s."
+            "\n\n"
+            "Forecast language can be specified by adding `l:<language-code>` "
+            "at the end of the location like:\\\n"
+            "`!weather Chicago l:es`.\\\n"
+            "Available languages are listed on <https://wttr.in/:translation>."
+            "\n\n"
+            "Options can be combined: `!weather Chicago l:es u:M`."
         )
 
     @command.new(name="moon", help="Get the moon phase")
@@ -137,6 +146,26 @@ class WeatherBot(Plugin):
                     f"error getting location {self._stored_location}"
                 )
 
+    def _language(self) -> str:
+        if self._stored_language == "":
+            language = self._config_value("default_language")
+            location = self._stored_location
+
+            if "l:" in location:
+                match: Match[str] | None = search(
+                    r"(\bl: *(?!u:)(\S+))", location, IGNORECASE
+                )
+
+                if match is not None:
+                    matches = match.groups()
+                    language = matches[1]
+                    location = location.replace(matches[0], "")
+
+            self._stored_language = language.strip()
+            self._stored_location = location.strip()
+
+        return self._stored_language
+
     def _location(self, location: str = "") -> str:
         """Return a cleaned-up location name"""
         if self._stored_location == "":
@@ -147,6 +176,7 @@ class WeatherBot(Plugin):
                 else self._config_value("default_location")
             ).strip()
             self._units()
+            self._language()
 
         return self._stored_location
 
@@ -206,7 +236,12 @@ class WeatherBot(Plugin):
 
                 if match is not None:
                     matches = match.groups()
-                    units = matches[1]
+                    custom_unit = matches[1]
+                    units = (
+                        custom_unit
+                        if custom_unit in ("u", "m", "M")
+                        else units
+                    )
                     location = location.replace(matches[0], "").strip()
 
             self._stored_location = location.strip()

@@ -10,6 +10,10 @@ default_location:
 # Blank will automatically determine units based on source IP
 default_units:
 
+# The default language to use for weather reports.
+# Available languages are listed here: https://wttr.in/:translation
+default_language:
+
 # Show a link to the wttr.in page
 show_link: false
 

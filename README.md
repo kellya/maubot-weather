@@ -13,6 +13,9 @@ A simple [maubot](https://github.com/maubot/maubot) (which was based on the echo
   where `<location>` can be an airport code, or a city
 * `!weather <location> u:[u|m|M]` - As above, but specify unit of measure (see
     below)
+* `!weather <location> l:[language code]` - current weather and forecast in the
+  specified language; \
+  available languages are listed on <https://wttr.in/:translation>
 * `!moon` - Display lunar phase information
 
 ### Units

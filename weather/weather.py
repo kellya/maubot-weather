@@ -152,6 +152,7 @@ class WeatherBot(Plugin):
 
     def _message(self, content: str) -> str:
         message: str = content
+        location_match: Match[str] | None = search(r'^(.+):', message)
 
         if self.config["show_link"]:
             message += f"([wttr.in]({self._url()}))"
@@ -164,6 +165,8 @@ class WeatherBot(Plugin):
                 "This issue will probably resolve itself, so sit "
                 "tight and look out the window until it does"
             )
+        elif not self._stored_location and location_match is not None:
+            self._stored_location = location_match[1]
 
         return message
 

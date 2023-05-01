@@ -1,7 +1,7 @@
 """ Maubot to get the weather from wttr.in and post in matrix chat """
 
 from re import IGNORECASE, Match, search, sub
-from typing import Type
+from typing import Dict, Optional, Type, Union
 from urllib.parse import urlencode
 
 from maubot import Plugin, MessageEvent
@@ -152,7 +152,7 @@ class WeatherBot(Plugin):
             location = self._stored_location
 
             if "l:" in location:
-                match: Match[str] | None = search(
+                match: Optional["Match[str]"] = search(
                     r"(\bl: *(?!u:)(\S+))", location, IGNORECASE
                 )
 
@@ -182,7 +182,7 @@ class WeatherBot(Plugin):
 
     def _message(self, content: str) -> str:
         message: str = content
-        location_match: Match[str] | None = search(r'^(.+):', message)
+        location_match: Optional["Match[str]"] = search(r'^(.+):', message)
 
         if self.config["show_link"]:
             message += f"([wttr.in]({self._url()}))"
@@ -200,8 +200,8 @@ class WeatherBot(Plugin):
 
         return message
 
-    def _options(self) -> dict[str, int | str]:
-        options: dict[str, int | str] = {}
+    def _options(self) -> Dict[str, Union[int, str]]:
+        options: Dict[str, Union[int, str]] = {}
 
         if self._stored_language:
             options["lang"] = self._stored_language
@@ -212,7 +212,7 @@ class WeatherBot(Plugin):
         return options
 
     def _options_querystring(
-        self, custom_options: dict[str, int | str] | None = None
+        self, custom_options: Optional[Dict[str, Union[int, str]]] = None
     ) -> str:
         options = self._options()
         options.update(custom_options if custom_options else {})
@@ -230,7 +230,7 @@ class WeatherBot(Plugin):
             location = self._stored_location
 
             if "u:" in location:
-                match: Match[str] | None = search(
+                match: Optional["Match[str]"] = search(
                     r"(\bu: *(?!l:)(\S+))", location, IGNORECASE
                 )
 
@@ -249,7 +249,9 @@ class WeatherBot(Plugin):
 
         return self._stored_units
 
-    def _url(self, custom_options: dict[str, int | str] | None = None) -> str:
+    def _url(
+        self, custom_options: Optional[Dict[str, Union[int, str]]] = None
+    ) -> str:
         querystring = self._options_querystring(custom_options)
 
         return (

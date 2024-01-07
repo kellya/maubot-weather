@@ -48,7 +48,7 @@ class WeatherBot(Plugin):
         or by the config file if no location is given"""
         self._reset_stored_values()
         self._location(location)
-        response = await self.http.get(self._url({"format": 3}))
+        response = await self.http.get(self._url({"format": 4}))
         await evt.respond(self._message(await response.text()))
         await self._image(evt)
 

@@ -4,10 +4,12 @@ from re import IGNORECASE, Match, search, sub
 from typing import Dict, Optional, Type, Union
 from urllib.parse import urlencode
 
+from ansitoimg import ansiToRender
 from maubot import Plugin, MessageEvent
 from maubot.handlers import command
 from mautrix.util.config import BaseProxyConfig, ConfigUpdateHelper
 from yarl import URL
+import asyncio
 
 
 class Config(BaseProxyConfig):
@@ -125,21 +127,29 @@ class WeatherBot(Plugin):
             else ""
         )
 
+    async def gen_png(self, ansi_string: str, filename: str = "/tmp/weather.png") -> None:
+        """Generate a PNG of the weather for the location"""
+        print (f"writing {filename}")
+        await asyncio.to_thread(ansiToRender(ansi_string, filename, width=125))
+        print("""done""")
+
+
     async def _image(self, event: MessageEvent) -> None:
         if self.config["show_image"] and self._stored_location:
             response = await self.http.get(
-                URL(f"{self._base_url()}.png")
-                .update_query(self._options_querystring())
+                URL(f"{self._base_url()}?q")
             )
 
             if response.status == 200:
-                data = await response.read()
+                data = await response.text()
+                #filename = f"{self._stored_location}.png"
                 filename = f"{self._stored_location}.png"
+                await self.gen_png(data,filename)
                 uri = await self.client.upload_media(
-                    data, mime_type="image/png", filename="filename"
+                    "/tmp/weather.png", mime_type="image/png", filename="weather.png"
                 )
                 await self.client.send_image(
-                    event.room_id, url=uri, file_name=filename
+                    event.room_id, url=uri, file_name="weather.png"
                 )
             else:
                 await event.respond(

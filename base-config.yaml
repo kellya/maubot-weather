@@ -13,3 +13,5 @@ show_link: false
 
 # display the image of the forecast
 show_image: false
+
+weather_provider: test

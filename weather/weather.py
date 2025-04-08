@@ -1,176 +1,176 @@
-""" maubot to get the weather from wttr.in and post in matrix chat """
+"""
+Maubot to get weather from multiple providers and post in matrix chat
+"""
 
-from __future__ import annotations
-from typing import Type
+from abc import ABC, abstractmethod
+from re import IGNORECASE, Match, search, sub
+from typing import Dict, List, Optional, Protocol, Type, Union
+from urllib.parse import urlencode
+
 from maubot import Plugin, MessageEvent
 from maubot.handlers import command
 from mautrix.util.config import BaseProxyConfig, ConfigUpdateHelper
-from mautrix.util.async_db import UpgradeTable, Connection
 from yarl import URL
 
-upgrade_table = UpgradeTable()
 
+class WeatherData:
+    """Class to standardize weather data across providers"""
 
-@upgrade_table.register(description="Initial revision")
-async def upgrade_v1(conn: Connection) -> None:
-    await conn.execute(
-        """CREATE TABLE wx_location_pref (
-            username   TEXT PRIMARY KEY,
-            city TEXT NOT NULL
-        )"""
-    )
+    def __init__(self,
+                 location: str,
+                 temperature: str,
+                 condition: str,
+                 humidity: str = None,
+                 wind: str = None,
+                 forecast: str = None,
+                 image_url: str = None,
+                 provider_link: str = None):
+        self.location = location
+        self.temperature = temperature
+        self.condition = condition
+        self.humidity = humidity
+        self.wind = wind
+        self.forecast = forecast
+        self.image_url = image_url
+        self.provider_link = provider_link
 
+    def get_formatted_message(self) -> str:
+        """Return a formatted message with the weather information"""
+        message = f"{self.location}: {self.temperature}, {self.condition}"
 
-@upgrade_table.register(description="Remember user who added value")
-async def upgrade_v2(conn: Connection) -> None:
-    await conn.execute("ALTER TABLE wx_location_pref ADD COLUMN creator TEXT")
+        if self.humidity:
+            message += f", Humidity: {self.humidity}"
 
+        if self.wind:
+            message += f", Wind: {self.wind}"
 
-@upgrade_table.register(description="Remember user who added value")
-async def upgrade_v3(conn: Connection) -> None:
-    await conn.execute(
-        "insert into wx_location_pref values('default','Columbus, OH','')"
-    )
+        if self.forecast:
+            message += f"\nForecast: {self.forecast}"
 
+        if self.provider_link:
+            message += f" ([source]({self.provider_link}))"
 
-class Config(BaseProxyConfig):
-    """Configuration class"""
-
-    def do_update(self, helper: ConfigUpdateHelper) -> None:
-        helper.copy("show_link")
-        helper.copy("default_location")
-        helper.copy("show_image")
-        helper.copy("default_units")
-
-
-class WeatherBot(Plugin):
-    """maubot plugin class to get the weather and respond in a chat"""
-
-    async def start(self) -> None:
-        await super().start()
-        self.config.load_and_update()
-
-    @classmethod
-    def get_db_upgrade_table(cls) -> UpgradeTable | None:
-        return upgrade_table
-
-    @classmethod
-    def get_config_class(cls) -> Type[BaseProxyConfig]:
-        return Config
-
-    def get_location(self, location=None) -> str:
-        """Return a cleaned-up location name"""
-        if not location:
-            location = self.config["default_location"]
-        location = location.replace(", ", "_")
-        location = location.replace(" ", "+")
-        return location.strip()
-
-    async def get_weather(self, location, units=None) -> str:
-        if self.config["default_units"]:
-            units = f"&{self.config['default_units']}"
-        if "u:" in location:
-            # If the location has units specified, attempt to use them
-            location, custom_unit = location.split("u:")
-            if custom_unit in ["u", "m", "M"]:
-                units = f"&{custom_unit}"
-        location = self.get_location(location.strip())
-
-        resp = await self.http.get(f"http://wttr.in/{location}?format=3{units}")
-        weather = await resp.text()
-        message = weather
-        if self.config["show_link"]:
-            link = f'[(wttr.in)]({URL("https://wttr.in") / location})'
-            message += link
-        if weather.startswith("Unknown location; please try"):
-            message += (
-                " | Note: "
-                "An 'unknown location' likely indicates "
-                "an issue with wttr.in obtaining geolocation information. "
-                "This issue will probably resolve itself, so sit "
-                "tight and look out the window until it does"
-            )
         return message
 
-    @command.new(
-        name="weather",
-        aliases=("wx",),
-        help="Get the weather",
-        require_subcommand=False,
-    )
-    async def weather(self, evt: MessageEvent) -> None:
-        message = await self.get_weather("Columbus,Ohio")
-        await evt.respond(message)
 
-    @weather.subcommand(name="get")
-    @command.argument(name="location", pass_raw=True)
-    async def wx_location(self, evt: MessageEvent, location="Columbus,oh") -> None:
-        """Listens for !weather and returns a message with the result of
-        a call to wttr.in for the location specified by !weather <location>
-        or by the config file if no location is given"""
-        units = ""  # default to nothing so that response works even if default is unset
-        message = await self.get_weather(location)
-        await evt.respond(message)
-        if self.config["show_image"]:
-            wttr_url = "http://wttr.in"
-            wttr = URL(f"{wttr_url}/{location}.png?{units}")
-            resp = await self.http.get(wttr)
-            if resp.status == 200:
-                data = await resp.read()
-                filename = "weather.png"
-                uri = await self.client.upload_media(
-                    data, mime_type="image/png", filename="filename"
-                )
-                await self.client.send_image(
-                    evt.room_id,
-                    url=uri,
-                    file_name=filename,
-                )
-            else:
-                await evt.respond(f"error getting location {location}")
+class MoonPhaseData:
+    """Class to standardize moon phase data across providers"""
 
-    @weather.subcommand(name="help", help="show help")
-    async def wx_tips(self, evt: MessageEvent):
-        await evt.respond(
-            """
-                Uses wttr.in to get the weather and respond. If you
-                don't specify a location, it will use the IP address
-                of the server to figure out what the location is.
+    def __init__(self, phase: str, illumination: str, icon: str = None):
+        self.phase = phase
+        self.illumination = illumination
+        self.icon = icon
 
-                Otherwise, you may specify the location by name:
-                !weather Chicago
+    def get_formatted_message(self) -> str:
+        """Return a formatted message with the moon phase information"""
+        if self.icon:
+            return f"{self.icon} {self.phase} ({self.illumination}% Illuminated)"
+        return f"{self.phase} ({self.illumination}% Illuminated)"
 
-                or by Airport Code
-                !weather SFO
 
-                The units may be specified with a location by adding
-                u:<unit> to the end of the location like:
-                !weather Chicago u:m
+class WeatherProvider(ABC):
+    """Abstract base class for weather providers"""
 
-                Where <unit> is one of:
-                m = metric
-                u = US
-                M = metric, but wind in m/s
-                """
+    @abstractmethod
+    async def get_weather(self, location: str, units: str = None, language: str = None) -> WeatherData:
+        """Get weather data for a location"""
+        pass
+
+    @abstractmethod
+    async def get_weather_image(self, location: str, units: str = None, language: str = None) -> Optional[bytes]:
+        """Get weather image for a location, return None if not supported"""
+        pass
+
+    @abstractmethod
+    async def get_moon_phase(self) -> MoonPhaseData:
+        """Get current moon phase data"""
+        pass
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """Get provider name"""
+        pass
+
+    @property
+    def supports_images(self) -> bool:
+        """Whether this provider supports weather images"""
+        return False
+
+
+class WttrInProvider(WeatherProvider):
+    """Weather provider implementation for wttr.in"""
+
+    def __init__(self, http_client):
+        self.http = http_client
+        self._service_url = "https://wttr.in"
+
+    @property
+    def name(self) -> str:
+        return "wttr.in"
+
+    @property
+    def supports_images(self) -> bool:
+        return True
+
+    def _build_url(self, location: str, options: Dict[str, Union[int, str]] = None) -> URL:
+        """Build URL for wttr.in API"""
+        base_url = URL(self._service_url).with_path(location)
+        if not options:
+            return base_url
+
+        querystring = sub(r'=(?:(?=&)|$)', '', urlencode(options))
+        return base_url.update_query(querystring)
+
+    async def get_weather(self, location: str, units: str = None, language: str = None) -> WeatherData:
+        """Get weather data from wttr.in"""
+        options = {}
+        if language:
+            options["lang"] = language
+        if units:
+            options[units] = ""
+
+        # Add format=3 for one-line output
+        query_options = options.copy()
+        query_options["format"] = 3
+
+        url = self._build_url(location, query_options)
+        response = await self.http.get(url)
+        content = await response.text()
+
+        # Parse the response from wttr.in
+        location_match = search(r'^(.+):', content)
+        extracted_location = location_match.group(1) if location_match else location
+
+        # Remove the location prefix for the condition text
+        condition_text = content.replace(f"{extracted_location}:", "").strip()
+
+        provider_link = str(self._build_url(location, options))
+
+        return WeatherData(
+            location=extracted_location,
+            temperature="",  # wttr.in format=3 combines temp with condition
+            condition=condition_text,
+            provider_link=provider_link
         )
 
-    @command.new(name="wxpref", help="set weather bot preferences")
-    @command.argument("preference", pass_raw=True)
-    async def set_prefs(self, evt: MessageEvent, preference):
-        """sets preferences in database"""
-        q = """
-            INSERT INTO wx_location_pref (username, city) VALUES ($1,$2)
-            ON CONFLICT (username) DO UPDATE SET username=excluded.username, city=excluded.city
-        """
-        await self.database.execute(q, evt.sender, preference)
-        await evt.respond(f"Inserted {preference} as your default location")
+    async def get_weather_image(self, location: str, units: str = None, language: str = None) -> Optional[bytes]:
+        """Get weather image from wttr.in"""
+        options = {}
+        if language:
+            options["lang"] = language
+        if units:
+            options[units] = ""
 
-    @command.new(name="moon", help="Get the moon phase")
-    async def moon_phase_handler(
-            self,
-            evt: MessageEvent,
-    ) -> None:
-        """Get the lunar phase from wttr.in json and respond in chat"""
+        image_url = self._build_url(f"{location}.png", options)
+        response = await self.http.get(image_url)
+
+        if response.status == 200:
+            return await response.read()
+        return None
+
+    async def get_moon_phase(self) -> MoonPhaseData:
+        """Get moon phase data from wttr.in"""
         # Associate the utf-8 character with the name of the phase
         phase_char = {
             "new moon": "🌑",
@@ -183,16 +183,256 @@ class WeatherBot(Plugin):
             "waning crescent": "🌘",
         }
 
-        resp = await self.http.get(URL(f"http://wttr.in/{self.get_location}?format=j1"))
+        url = URL(self._service_url).update_query({"format": "j1"})
+        response = await self.http.get(url)
+
         # get the JSON data
-        moon_phase_json = await resp.json()
+        moon_phase_json = await response.json()
+
         # pull out the "moon_phase"
         moon_phase = moon_phase_json["weather"][0]["astronomy"][0]["moon_phase"]
+        moon_phase_illum = moon_phase_json["weather"][0]["astronomy"][0]["moon_illumination"]
+
         # get the character associated with the current phase
-        moon_phase_char = phase_char[moon_phase.lower()]
-        moon_phase_illum = moon_phase_json["weather"][0]["astronomy"][0][
-            "moon_illumination"
-        ]
-        await evt.respond(
-            f"{moon_phase_char} {moon_phase} ({moon_phase_illum}% Illuminated)"
+        moon_phase_char = phase_char.get(moon_phase.lower(), "")
+
+        return MoonPhaseData(
+            phase=moon_phase,
+            illumination=moon_phase_illum,
+            icon=moon_phase_char
         )
+
+
+class TestProvider(WeatherProvider):
+    """Mock weather provider for testing purposes"""
+
+    def __init__(self, http_client):
+        self.http = http_client
+
+    @property
+    def name(self) -> str:
+        return "test"
+
+    @property
+    def supports_images(self) -> bool:
+        return False
+
+    async def get_weather(self, location: str, units: str = None, language: str = None) -> WeatherData:
+        """Return fake weather data for testing"""
+        # Generate some simple test data
+        temp_unit = "°F" if units == "u" else "°C"
+        temperature = f"72{temp_unit}" if units == "u" else f"22{temp_unit}"
+
+        # Customize messages based on language if provided
+        greeting = "Sunny day in" if not language or language == "en" else "Día soleado en"
+
+        return WeatherData(
+            location=location or "TestCity",
+            temperature=temperature,
+            condition="Sunny with test clouds",
+            humidity="50%",
+            wind="5 mph" if units == "u" else "8 km/h",
+            forecast=f"{greeting} {location or 'TestCity'}",
+            provider_link="https://example.com/test-weather"
+        )
+
+    async def get_weather_image(self, location: str, units: str = None, language: str = None) -> Optional[bytes]:
+        """Test provider doesn't support images"""
+        return None
+
+    async def get_moon_phase(self) -> MoonPhaseData:
+        """Return fake moon phase data for testing"""
+        return MoonPhaseData(
+            phase="Test Moon",
+            illumination="42",
+            icon="🌔"
+        )
+
+
+class Config(BaseProxyConfig):
+    """Configuration class"""
+
+    def do_update(self, helper: ConfigUpdateHelper) -> None:
+        helper.copy("show_link")
+        helper.copy("default_location")
+        helper.copy("show_image")
+        helper.copy("default_units")
+        helper.copy("default_language")
+        helper.copy("weather_provider")  # Add this new config option
+
+
+class WeatherBot(Plugin):
+    """Maubot plugin class to get the weather and respond in a chat."""
+
+    _providers: Dict[str, WeatherProvider]
+    _current_provider: WeatherProvider
+    _stored_language: str
+    _stored_location: str
+    _stored_units: str
+
+    async def start(self) -> None:
+        await super().start()
+        self.config.load_and_update()
+
+        # Initialize providers
+        self._providers = {
+            "wttr.in": WttrInProvider(self.http),
+            "test": TestProvider(self.http)
+            # Add more providers as they're implemented
+            # "openweathermap": OpenWeatherMapProvider(self.http, api_key),
+            # "weatherapi": WeatherAPIProvider(self.http, api_key),
+        }
+
+        # Set current provider from config
+        provider_name = self.config.get("weather_provider", "wttr.in")
+        self._current_provider = self._providers.get(provider_name, self._providers["wttr.in"])
+
+    @classmethod
+    def get_config_class(cls) -> Type[BaseProxyConfig]:
+        return Config
+
+    @command.new(
+        name="weather", help="Get the weather",
+        arg_fallthrough=False, require_subcommand=False
+    )
+    @command.argument("location", pass_raw=True)
+    async def weather_handler(self, evt: MessageEvent, location: str) -> None:
+        """Listens for `!weather` and returns a message with the weather for the location"""
+        self._reset_stored_values()
+        parsed_location = self._parse_location(location)
+
+        try:
+            weather_data = await self._current_provider.get_weather(
+                parsed_location,
+                units=self._stored_units,
+                language=self._stored_language
+            )
+            await evt.respond(weather_data.get_formatted_message())
+
+            # Send weather image if enabled and supported
+            if (self.config["show_image"] and
+                    self._current_provider.supports_images and
+                    parsed_location):
+                await self._send_weather_image(evt, parsed_location)
+
+        except Exception as e:
+            await evt.respond(f"Error getting weather: {str(e)}")
+
+    @weather_handler.subcommand("provider", help="Set or view current weather provider")
+    @command.argument("provider_name", required=False)
+    async def set_provider(self, evt: MessageEvent, provider_name: str = None) -> None:
+        """Set or view the current weather provider"""
+        if not provider_name:
+            # List available providers
+            providers_list = ", ".join(self._providers.keys())
+            current = self._current_provider.name
+            await evt.respond(f"Current provider: {current}\nAvailable providers: {providers_list}")
+            return
+
+        if provider_name not in self._providers:
+            await evt.respond(
+                f"Unknown provider: {provider_name}. Available providers: {', '.join(self._providers.keys())}")
+            return
+
+        self._current_provider = self._providers[provider_name]
+        # Optionally save to config
+        await evt.respond(f"Weather provider set to {provider_name}")
+
+    @weather_handler.subcommand("help", help="Usage instructions")
+    async def help(self, evt: MessageEvent) -> None:
+        """Return help message."""
+        await evt.respond(
+            "Get information about the weather.\n\n"
+            "If the location is not specified, the default location or IP address will be used.\\\n"
+            "Otherwise, location can be specified by name:\\\n"
+            "`!weather Chicago`\\\n"
+            "or by Airport Code:\\\n"
+            "`!weather SFO`\n\n"
+            "Units may be specified by adding `u:<unit>` at the end of the "
+            "location like:\\\n"
+            "`!weather Chicago u:m`\\\n"
+            "where `<unit>` is one of:"
+            "\n\n"
+            "* `m`: metric;\n"
+            "* `u`: US;\n"
+            "* `M`: metric, but wind speed unit is m/s."
+            "\n\n"
+            "Forecast language can be specified by adding `l:<language-code>` "
+            "at the end of the location like:\\\n"
+            "`!weather Chicago l:es`.\\\n"
+            "\n\n"
+            "Options can be combined: `!weather Chicago l:es u:M`."
+            "\n\n"
+            "To change the weather provider, use: `!weather provider <name>`\n"
+            "To see available providers, use: `!weather provider`"
+        )
+
+    @command.new(name="moon", help="Get the moon phase")
+    async def moon_phase_handler(self, evt: MessageEvent) -> None:
+        """Get the lunar phase and respond in chat"""
+        try:
+            moon_data = await self._current_provider.get_moon_phase()
+            await evt.respond(moon_data.get_formatted_message())
+        except Exception as e:
+            await evt.respond(f"Error getting moon phase: {str(e)}")
+
+    def _parse_location(self, location: str = "") -> str:
+        """Parse location string and extract units and language"""
+        if not location:
+            location = self._config_value("default_location")
+
+        # Parse units from location
+        if "u:" in location:
+            match = search(r"(\bu: *(?!l:)(\S+))", location, IGNORECASE)
+            if match:
+                matches = match.groups()
+                unit = matches[1]
+                if unit in ("u", "m", "M"):
+                    self._stored_units = unit
+                location = location.replace(matches[0], "").strip()
+        else:
+            self._stored_units = self._config_value("default_units")
+
+        # Parse language from location
+        if "l:" in location:
+            match = search(r"(\bl: *(?!u:)(\S+))", location, IGNORECASE)
+            if match:
+                matches = match.groups()
+                self._stored_language = matches[1]
+                location = location.replace(matches[0], "").strip()
+        else:
+            self._stored_language = self._config_value("default_language")
+
+        self._stored_location = location.strip()
+        return self._stored_location
+
+    async def _send_weather_image(self, evt: MessageEvent, location: str) -> None:
+        """Send weather image to chat if available"""
+        image_data = await self._current_provider.get_weather_image(
+            location,
+            units=self._stored_units,
+            language=self._stored_language
+        )
+
+        if image_data:
+            filename = f"{location}.png"
+            uri = await self.client.upload_media(
+                image_data, mime_type="image/png", filename=filename
+            )
+            await self.client.send_image(
+                evt.room_id, url=uri, file_name=filename
+            )
+
+    def _config_value(self, name: str) -> str:
+        """Get a configuration value with empty string fallback"""
+        return (
+            self.config[name].strip()
+            if self.config[name] is not None
+            else ""
+        )
+
+    def _reset_stored_values(self) -> None:
+        """Reset stored location, units and language"""
+        self._stored_language = ''
+        self._stored_location = ''
+        self._stored_units = ''

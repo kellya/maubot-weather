@@ -2,7 +2,7 @@
 Maubot to get weather from multiple providers and post in matrix chat
 """
 
-from re import IGNORECASE, Match, search
+from re import IGNORECASE, Match, search, sub
 from typing import Dict, List, Optional, Protocol, Type, Union
 
 from maubot import Plugin, MessageEvent
@@ -184,6 +184,9 @@ class WeatherBot(Plugin):
         if not location:
             return ""
             
+        original_location = location
+        has_only_options = True
+            
         # Extract units (u:m, u:M, u:u)
         # More flexible pattern to match different formats users might use
         unit_match = search(r"\b[uU]:\s*([mMu])\b|\b[uU]([mMu])\b", location)
@@ -204,6 +207,13 @@ class WeatherBot(Plugin):
             
         # Remove extra spaces and commas at ends
         location = location.strip(" ,")
+        
+        # Check if the original input contained only options (units/language) and no actual location
+        if location == "" and original_location != "":
+            # If we had input but it's now empty after removing options, return empty string
+            # to signal that we should use the default location
+            return ""
+            
         self._stored_location = location
         return self._stored_location
 

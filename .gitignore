@@ -1,4 +1,4 @@
 build
 *.mbp
 config.yaml
-**__pycache
+**__pycache**

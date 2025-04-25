@@ -245,12 +245,12 @@ class TestProvider(WeatherProvider):
         )
 
         return WeatherData(
-            location=location or "TestCity",
+            location="TestCity",
             temperature=temperature,
             condition="Sunny with test clouds",
             humidity="50%",
             wind="5 mph" if units == "u" else "8 km/h",
-            forecast=f"{greeting} {location or 'TestCity'}",
+            forecast=f"{greeting} TestCity",
             provider_link="https://example.com/test-weather",
         )
 
@@ -338,6 +338,9 @@ class WeatherBot(Plugin):
                 units=self._stored_units,
                 language=self._stored_language,
             )
+            # Remove provider_link if user doesn't want to show it
+            if not prefs.get('show_link', False):
+                weather_data.provider_link = None
             await evt.respond(weather_data.get_formatted_message())
             # Send weather image if enabled and supported
             if (
@@ -396,17 +399,24 @@ class WeatherBot(Plugin):
             "\n\n"
             "Options can be combined: `!weather Chicago l:es u:M`."
             "\n\n"
-            "To change the weather provider, use: `!weather provider <name>`\n"
-            "To see available providers, use: `!weather provider`\n"
-            "To set your own preferences, use: `!weather pref <option> <value>`\n"
-            "To view your preferences, use: `!weather pref`\n"
-            "To clear your preferences, use: `!weather pref clear`\n"
+            "To change the weather provider, use: `!weather provider <name>`\n\n"
+            "To see available providers, use: `!weather provider`\n\n"
+            "To set your own preferences, use: `!weather pref <option> <value>`\n\n"
+            "To view your preferences, use: `!weather pref`\n\n"
+            "To clear your preferences, use: `!weather pref clear`\n\n"
         )
 
     @command.new(name="moon", help="Get the moon phase")
     async def moon_phase_handler(self, evt: MessageEvent) -> None:
-        """Get the lunar phase and respond in chat"""
+        """Get the lunar phase and respond in chat, respecting user preferences."""
+        user_id = evt.sender
+        prefs = await self._userprefs.load_preferences_with_defaults(user_id, self.config, self._providers)
+        provider_name = prefs.get('provider', 'wttr.in')
+        self._current_provider = self._providers.get(provider_name, self._providers['wttr.in'])
+        self._stored_language = prefs.get('language', '')
+        self._stored_units = prefs.get('units', '')
         try:
+            # If future providers support language/units for moon, pass them here
             moon_data = await self._current_provider.get_moon_phase()
             await evt.respond(moon_data.get_formatted_message())
         except Exception as e:
@@ -459,10 +469,25 @@ class WeatherBot(Plugin):
     async def user_pref_handler(self, evt: MessageEvent, option: str = None, value: str = None) -> None:
         """Set, view, or clear user preferences."""
         user_id = evt.sender
-        valid_options = ["location", "units", "language", "show_image", "provider"]
-        if option is None:
+        valid_options = ["location", "units", "language", "show_image", "show_link", "provider"]
+        if option is None or (isinstance(option, str) and option.strip() == ""):
             prefs = await self._userprefs.load_preferences_with_defaults(user_id, self.config, self._providers)
-            msg = "Your preferences (including defaults):\n" + "\n".join(f"{k}: {v}" for k, v in prefs.items())
+            user_row = await self._userprefs.get_preferences(user_id)
+            user_set = set()
+            if user_row:
+                if user_row.location: user_set.add('location')
+                if user_row.units: user_set.add('units')
+                if user_row.language: user_set.add('language')
+                if user_row.show_image is not None: user_set.add('show_image')
+                if user_row.show_link is not None: user_set.add('show_link')
+                if user_row.provider: user_set.add('provider')
+            msg_lines = ["Your preferences (including defaults):\n"]
+            for k, v in prefs.items():
+                if k in user_set:
+                    msg_lines.append(f"**{k}: {v}** (set by you)")
+                else:
+                    msg_lines.append(f"{k}: {v} (server default)")
+            msg = "\n\n".join(msg_lines)
             await evt.respond(msg)
             return
         if option == "clear":
@@ -476,10 +501,15 @@ class WeatherBot(Plugin):
             await evt.respond(f"Please provide a value for '{option}'.")
             return
         # Type conversion for booleans
-        if option == "show_image":
+        if option in ("show_image", "show_link"):
             value = value.lower() in ("1", "true", "yes", "on")
         await self._userprefs.save_preference(user_id, option, value)
         await evt.respond(f"Preference '{option}' set to '{value}' for you.")
+
+    @weather_handler.subcommand("prefs", help="Show your current weather preferences (alias for 'pref')")
+    async def user_prefs_alias(self, evt: MessageEvent) -> None:
+        """Alias for showing user preferences."""
+        await self.user_pref_handler(evt)
 
     def _reset_stored_values(self) -> None:
         """Reset stored location, units and language"""

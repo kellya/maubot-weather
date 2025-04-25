@@ -2,267 +2,19 @@
 Maubot to get weather from multiple providers and post in matrix chat
 """
 
-from abc import ABC, abstractmethod
-from re import IGNORECASE, Match, search, sub
+from re import IGNORECASE, Match, search
 from typing import Dict, List, Optional, Protocol, Type, Union
-from urllib.parse import urlencode
 
 from maubot import Plugin, MessageEvent
 from maubot.handlers import command
 from mautrix.util.config import BaseProxyConfig, ConfigUpdateHelper
-from yarl import URL
 
+from .models import WeatherData, MoonPhaseData
+from .providers import WeatherProvider, WttrInProvider, TestProvider
 from .userprefs import UserPreferencesManager
 
 
-class WeatherData:
-    """Class to standardize weather data across providers"""
 
-    def __init__(
-        self,
-        location: str,
-        temperature: str,
-        condition: str,
-        humidity: str = None,
-        wind: str = None,
-        forecast: str = None,
-        image_url: str = None,
-        provider_link: str = None,
-    ):
-        self.location = location
-        self.temperature = temperature
-        self.condition = condition
-        self.humidity = humidity
-        self.wind = wind
-        self.forecast = forecast
-        self.image_url = image_url
-        self.provider_link = provider_link
-
-    def get_formatted_message(self) -> str:
-        """Return a formatted message with the weather information"""
-        message = f"{self.location}: {self.temperature}, {self.condition}"
-
-        if self.humidity:
-            message += f", Humidity: {self.humidity}"
-
-        if self.wind:
-            message += f", Wind: {self.wind}"
-
-        if self.forecast:
-            message += f"\nForecast: {self.forecast}"
-
-        if self.provider_link:
-            message += f" ([source]({self.provider_link}))"
-
-        return message
-
-
-class MoonPhaseData:
-    """Class to standardize moon phase data across providers"""
-
-    def __init__(self, phase: str, illumination: str, icon: str = None):
-        self.phase = phase
-        self.illumination = illumination
-        self.icon = icon
-
-    def get_formatted_message(self) -> str:
-        """Return a formatted message with the moon phase information"""
-        if self.icon:
-            return f"{self.icon} {self.phase} ({self.illumination}% Illuminated)"
-        return f"{self.phase} ({self.illumination}% Illuminated)"
-
-
-class WeatherProvider(ABC):
-    """Abstract base class for weather providers"""
-
-    @abstractmethod
-    async def get_weather(
-        self, location: str, units: str = None, language: str = None
-    ) -> WeatherData:
-        """Get weather data for a location"""
-        pass
-
-    @abstractmethod
-    async def get_weather_image(
-        self, location: str, units: str = None, language: str = None
-    ) -> Optional[bytes]:
-        """Get weather image for a location, return None if not supported"""
-        pass
-
-    @abstractmethod
-    async def get_moon_phase(self) -> MoonPhaseData:
-        """Get current moon phase data"""
-        pass
-
-    @property
-    @abstractmethod
-    def name(self) -> str:
-        """Get provider name"""
-        pass
-
-    @property
-    def supports_images(self) -> bool:
-        """Whether this provider supports weather images"""
-        return False
-
-
-class WttrInProvider(WeatherProvider):
-    """Weather provider implementation for wttr.in"""
-
-    def __init__(self, http_client):
-        self.http = http_client
-        self._service_url = "https://wttr.in"
-
-    @property
-    def name(self) -> str:
-        return "wttr.in"
-
-    @property
-    def supports_images(self) -> bool:
-        return True
-
-    def _build_url(
-        self, location: str, options: Dict[str, Union[int, str]] = None
-    ) -> URL:
-        """Build URL for wttr.in API"""
-        base_url = URL(self._service_url).with_path(location)
-        if not options:
-            return base_url
-
-        querystring = sub(r"=(?:(?=&)|$)", "", urlencode(options))
-        return base_url.update_query(querystring)
-
-    async def get_weather(
-        self, location: str, units: str = None, language: str = None
-    ) -> WeatherData:
-        """Get weather data from wttr.in"""
-        options = {}
-        if language:
-            options["lang"] = language
-        if units:
-            options[units] = ""
-
-        # Add format=3 for one-line output
-        query_options = options.copy()
-        query_options["format"] = 3
-
-        url = self._build_url(location, query_options)
-        response = await self.http.get(url)
-        content = await response.text()
-
-        # Parse the response from wttr.in
-        location_match = search(r"^(.+):", content)
-        extracted_location = location_match.group(1) if location_match else location
-
-        # Remove the location prefix for the condition text
-        condition_text = content.replace(f"{extracted_location}:", "").strip()
-
-        provider_link = str(self._build_url(location, options))
-
-        return WeatherData(
-            location=extracted_location,
-            temperature="",  # wttr.in format=3 combines temp with condition
-            condition=condition_text,
-            provider_link=provider_link,
-        )
-
-    async def get_weather_image(
-        self, location: str, units: str = None, language: str = None
-    ) -> Optional[bytes]:
-        """Get weather image from wttr.in"""
-        options = {}
-        if language:
-            options["lang"] = language
-        if units:
-            options[units] = ""
-
-        image_url = self._build_url(f"{location}.png", options)
-        response = await self.http.get(image_url)
-
-        if response.status == 200:
-            return await response.read()
-        return None
-
-    async def get_moon_phase(self) -> MoonPhaseData:
-        """Get moon phase data from wttr.in"""
-        # Associate the utf-8 character with the name of the phase
-        phase_char = {
-            "new moon": "🌑",
-            "waxing crescent": "🌒",
-            "first quarter": "🌓",
-            "waxing gibbous": "🌔",
-            "full moon": "🌕",
-            "waning gibbous": "🌖",
-            "last quarter": "🌗",
-            "waning crescent": "🌘",
-        }
-
-        url = URL(self._service_url).update_query({"format": "j1"})
-        response = await self.http.get(url)
-
-        # get the JSON data
-        moon_phase_json = await response.json()
-
-        # pull out the "moon_phase"
-        moon_phase = moon_phase_json["weather"][0]["astronomy"][0]["moon_phase"]
-        moon_phase_illum = moon_phase_json["weather"][0]["astronomy"][0][
-            "moon_illumination"
-        ]
-
-        # get the character associated with the current phase
-        moon_phase_char = phase_char.get(moon_phase.lower(), "")
-
-        return MoonPhaseData(
-            phase=moon_phase, illumination=moon_phase_illum, icon=moon_phase_char
-        )
-
-
-class TestProvider(WeatherProvider):
-    """Mock weather provider for testing purposes"""
-
-    def __init__(self, http_client):
-        self.http = http_client
-
-    @property
-    def name(self) -> str:
-        return "test"
-
-    @property
-    def supports_images(self) -> bool:
-        return False
-
-    async def get_weather(
-        self, location: str, units: str = None, language: str = None
-    ) -> WeatherData:
-        """Return fake weather data for testing"""
-        # Generate some simple test data
-        temp_unit = "°F" if units == "u" else "°C"
-        temperature = f"72{temp_unit}" if units == "u" else f"22{temp_unit}"
-
-        # Customize messages based on language if provided
-        greeting = (
-            "Sunny day in" if not language or language == "en" else "Día soleado en"
-        )
-
-        return WeatherData(
-            location="TestCity",
-            temperature=temperature,
-            condition="Sunny with test clouds",
-            humidity="50%",
-            wind="5 mph" if units == "u" else "8 km/h",
-            forecast=f"{greeting} TestCity",
-            provider_link="https://example.com/test-weather",
-        )
-
-    async def get_weather_image(
-        self, location: str, units: str = None, language: str = None
-    ) -> Optional[bytes]:
-        """Test provider doesn't support images"""
-        return None
-
-    async def get_moon_phase(self) -> MoonPhaseData:
-        """Return fake moon phase data for testing"""
-        return MoonPhaseData(phase="Test Moon", illumination="42", icon="🌔")
 
 
 class Config(BaseProxyConfig):
@@ -274,7 +26,8 @@ class Config(BaseProxyConfig):
         helper.copy("show_image")
         helper.copy("default_units")
         helper.copy("default_language")
-        helper.copy("weather_provider")  # Add this new config option
+        helper.copy("weather_provider")
+        helper.copy("show_plus_sign")  # Option to show + sign in temperature
 
 
 class WeatherBot(Plugin):
@@ -340,6 +93,7 @@ class WeatherBot(Plugin):
                 parsed_location,
                 units=self._stored_units,
                 language=self._stored_language,
+                show_plus_sign=prefs.get('show_plus_sign', False),
             )
             # Remove provider_link if user doesn't want to show it
             if not prefs.get('show_link', False):
@@ -429,16 +183,25 @@ class WeatherBot(Plugin):
         """Parse location string and extract units and language (robustly)"""
         if not location:
             return ""
+            
         # Extract units (u:m, u:M, u:u)
-        unit_match = search(r"\bu:\s*([mMu])\b", location)
+        # More flexible pattern to match different formats users might use
+        unit_match = search(r"\b[uU]:\s*([mMu])\b|\b[uU]([mMu])\b", location)
         if unit_match:
-            self._stored_units = unit_match.group(1)
-            location = sub(r"\bu:\s*[mMu]\b", "", location)
+            # Use the first non-None group
+            self._stored_units = unit_match.group(1) if unit_match.group(1) else unit_match.group(2)
+            # Remove the unit specification with a more flexible pattern
+            location = sub(r"\b[uU]:\s*[mMu]\b|\b[uU][mMu]\b", "", location)
+            
         # Extract language (l:xx, l:xx-yy)
-        lang_match = search(r"\bl:\s*([a-zA-Z\-]+)\b", location)
+        # More flexible pattern to match different formats users might use
+        lang_match = search(r"\b[lL]:\s*([a-zA-Z\-]+)\b|\b[lL]([a-zA-Z\-]+)\b", location)
         if lang_match:
-            self._stored_language = lang_match.group(1)
-            location = sub(r"\bl:\s*[a-zA-Z\-]+\b", "", location)
+            # Use the first non-None group
+            self._stored_language = lang_match.group(1) if lang_match.group(1) else lang_match.group(2)
+            # Remove the language specification with a more flexible pattern
+            location = sub(r"\b[lL]:\s*[a-zA-Z\-]+\b|\b[lL][a-zA-Z\-]+\b", "", location)
+            
         # Remove extra spaces and commas at ends
         location = location.strip(" ,")
         self._stored_location = location
@@ -467,7 +230,7 @@ class WeatherBot(Plugin):
     async def user_pref_handler(self, evt: MessageEvent, option: str = None, value: str = None) -> None:
         """Set, view, or clear user preferences."""
         user_id = evt.sender
-        valid_options = ["location", "units", "language", "show_image", "show_link", "provider"]
+        valid_options = ["location", "units", "language", "show_image", "show_link", "show_plus_sign", "provider"]
         if option is None or (isinstance(option, str) and option.strip() == ""):
             prefs = await self._userprefs.load_preferences_with_defaults(user_id, self.config, self._providers)
             user_row = await self._userprefs.get_preferences(user_id)
@@ -478,6 +241,7 @@ class WeatherBot(Plugin):
                 if user_row.language: user_set.add('language')
                 if user_row.show_image is not None: user_set.add('show_image')
                 if user_row.show_link is not None: user_set.add('show_link')
+                if user_row.show_plus_sign is not None: user_set.add('show_plus_sign')
                 if user_row.provider: user_set.add('provider')
             msg_lines = ["Your preferences (including defaults):\n"]
             for k, v in prefs.items():
@@ -499,7 +263,7 @@ class WeatherBot(Plugin):
             await evt.respond(f"Please provide a value for '{option}'.")
             return
         # Type conversion for booleans
-        if option in ("show_image", "show_link"):
+        if option in ("show_image", "show_link", "show_plus_sign"):
             value = value.lower() in ("1", "true", "yes", "on")
         await self._userprefs.save_preference(user_id, option, value)
         await evt.respond(f"Preference '{option}' set to '{value}' for you.")

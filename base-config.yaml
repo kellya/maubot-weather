@@ -14,4 +14,7 @@ show_link: false
 # display the image of the forecast
 show_image: false
 
+# show the + sign in positive temperatures
+show_plus_sign: false
+
 weather_provider: test

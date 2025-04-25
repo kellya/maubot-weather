@@ -12,6 +12,7 @@ class UserPreference:
         show_image: Optional[bool] = None,
         show_forecast: Optional[bool] = None,
         show_link: Optional[bool] = None,
+        show_plus_sign: Optional[bool] = None,
     ):
         self.user_id = user_id
         self.location = location
@@ -21,6 +22,7 @@ class UserPreference:
         self.show_image = show_image
         self.show_forecast = show_forecast
         self.show_link = show_link
+        self.show_plus_sign = show_plus_sign
 
     @classmethod
     def from_row(cls, row: Dict[str, Any]):
@@ -33,6 +35,7 @@ class UserPreference:
             show_image=row.get('show_image'),
             show_forecast=row.get('show_forecast'),
             show_link=row.get('show_link'),
+            show_plus_sign=row.get('show_plus_sign'),
         )
 
 class UserPreferencesManager:
@@ -51,7 +54,8 @@ class UserPreferencesManager:
             show_forecast BOOLEAN,
             show_link BOOLEAN,
             provider TEXT,
-            language TEXT
+            language TEXT,
+            show_plus_sign BOOLEAN
         )
         ''')
         # Migration: add show_link column if it doesn't exist
@@ -59,6 +63,12 @@ class UserPreferencesManager:
             await self.db.execute("SELECT show_link FROM user_preferences LIMIT 1")
         except Exception:
             await self.db.execute("ALTER TABLE user_preferences ADD COLUMN show_link BOOLEAN")
+            
+        # Migration: add show_plus_sign column if it doesn't exist
+        try:
+            await self.db.execute("SELECT show_plus_sign FROM user_preferences LIMIT 1")
+        except Exception:
+            await self.db.execute("ALTER TABLE user_preferences ADD COLUMN show_plus_sign BOOLEAN")
 
     async def get_preferences(self, user_id: str) -> Optional[UserPreference]:
         row = await self.db.fetchrow(
@@ -98,6 +108,7 @@ class UserPreferencesManager:
             'language': config.get('default_language', ''),
             'show_image': config.get('show_image', False),
             'show_link': config.get('show_link', False),
+            'show_plus_sign': config.get('show_plus_sign', False),
             'provider': config.get('weather_provider', 'wttr.in'),
         }
         # User overrides
@@ -113,6 +124,8 @@ class UserPreferencesManager:
                 prefs['show_image'] = row.show_image
             if row.show_link is not None:
                 prefs['show_link'] = row.show_link
+            if row.show_plus_sign is not None:
+                prefs['show_plus_sign'] = row.show_plus_sign
             if row.provider and row.provider in providers:
                 prefs['provider'] = row.provider
         return prefs

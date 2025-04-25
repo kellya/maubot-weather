@@ -7,3 +7,5 @@ modules:
 main_class: WeatherBot
 extra_files:
 - base-config.yaml
+database: true
+database_type: asyncpg

@@ -330,8 +330,11 @@ class WeatherBot(Plugin):
         # Use per-user or default provider
         provider_name = prefs['provider']
         self._current_provider = self._providers.get(provider_name, self._providers["wttr.in"])
-        self._stored_units = prefs['units']
-        self._stored_language = prefs['language']
+        # Only use prefs if not set by command
+        if not self._stored_units:
+            self._stored_units = prefs['units']
+        if not self._stored_language:
+            self._stored_language = prefs['language']
         try:
             weather_data = await self._current_provider.get_weather(
                 parsed_location,
@@ -423,27 +426,22 @@ class WeatherBot(Plugin):
             await evt.respond(f"Error getting moon phase: {str(e)}")
 
     def _parse_location(self, location: str = "") -> str:
-        """Parse location string and extract units and language"""
-        # This function is now called with already merged user preference as fallback
+        """Parse location string and extract units and language (robustly)"""
         if not location:
             return ""
-        # Parse units from location
-        if "u:" in location:
-            match = search(r"(\bu: *(?!l:)(\S+))", location, IGNORECASE)
-            if match:
-                matches = match.groups()
-                unit = matches[1]
-                if unit in ("u", "m", "M"):
-                    self._stored_units = unit
-                location = location.replace(matches[0], "").strip()
-        # Parse language from location
-        if "l:" in location:
-            match = search(r"(\bl: *(?!u:)(\S+))", location, IGNORECASE)
-            if match:
-                matches = match.groups()
-                self._stored_language = matches[1]
-                location = location.replace(matches[0], "").strip()
-        self._stored_location = location.strip()
+        # Extract units (u:m, u:M, u:u)
+        unit_match = search(r"\bu:\s*([mMu])\b", location)
+        if unit_match:
+            self._stored_units = unit_match.group(1)
+            location = sub(r"\bu:\s*[mMu]\b", "", location)
+        # Extract language (l:xx, l:xx-yy)
+        lang_match = search(r"\bl:\s*([a-zA-Z\-]+)\b", location)
+        if lang_match:
+            self._stored_language = lang_match.group(1)
+            location = sub(r"\bl:\s*[a-zA-Z\-]+\b", "", location)
+        # Remove extra spaces and commas at ends
+        location = location.strip(" ,")
+        self._stored_location = location
         return self._stored_location
 
     async def _send_weather_image(self, evt: MessageEvent, location: str) -> None:
@@ -506,10 +504,6 @@ class WeatherBot(Plugin):
         await self._userprefs.save_preference(user_id, option, value)
         await evt.respond(f"Preference '{option}' set to '{value}' for you.")
 
-    @weather_handler.subcommand("prefs", help="Show your current weather preferences (alias for 'pref')")
-    async def user_prefs_alias(self, evt: MessageEvent) -> None:
-        """Alias for showing user preferences."""
-        await self.user_pref_handler(evt)
 
     def _reset_stored_values(self) -> None:
         """Reset stored location, units and language"""

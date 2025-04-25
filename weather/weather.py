@@ -16,15 +16,17 @@ from yarl import URL
 class WeatherData:
     """Class to standardize weather data across providers"""
 
-    def __init__(self,
-                 location: str,
-                 temperature: str,
-                 condition: str,
-                 humidity: str = None,
-                 wind: str = None,
-                 forecast: str = None,
-                 image_url: str = None,
-                 provider_link: str = None):
+    def __init__(
+        self,
+        location: str,
+        temperature: str,
+        condition: str,
+        humidity: str = None,
+        wind: str = None,
+        forecast: str = None,
+        image_url: str = None,
+        provider_link: str = None,
+    ):
         self.location = location
         self.temperature = temperature
         self.condition = condition
@@ -72,12 +74,16 @@ class WeatherProvider(ABC):
     """Abstract base class for weather providers"""
 
     @abstractmethod
-    async def get_weather(self, location: str, units: str = None, language: str = None) -> WeatherData:
+    async def get_weather(
+        self, location: str, units: str = None, language: str = None
+    ) -> WeatherData:
         """Get weather data for a location"""
         pass
 
     @abstractmethod
-    async def get_weather_image(self, location: str, units: str = None, language: str = None) -> Optional[bytes]:
+    async def get_weather_image(
+        self, location: str, units: str = None, language: str = None
+    ) -> Optional[bytes]:
         """Get weather image for a location, return None if not supported"""
         pass
 
@@ -113,16 +119,20 @@ class WttrInProvider(WeatherProvider):
     def supports_images(self) -> bool:
         return True
 
-    def _build_url(self, location: str, options: Dict[str, Union[int, str]] = None) -> URL:
+    def _build_url(
+        self, location: str, options: Dict[str, Union[int, str]] = None
+    ) -> URL:
         """Build URL for wttr.in API"""
         base_url = URL(self._service_url).with_path(location)
         if not options:
             return base_url
 
-        querystring = sub(r'=(?:(?=&)|$)', '', urlencode(options))
+        querystring = sub(r"=(?:(?=&)|$)", "", urlencode(options))
         return base_url.update_query(querystring)
 
-    async def get_weather(self, location: str, units: str = None, language: str = None) -> WeatherData:
+    async def get_weather(
+        self, location: str, units: str = None, language: str = None
+    ) -> WeatherData:
         """Get weather data from wttr.in"""
         options = {}
         if language:
@@ -139,7 +149,7 @@ class WttrInProvider(WeatherProvider):
         content = await response.text()
 
         # Parse the response from wttr.in
-        location_match = search(r'^(.+):', content)
+        location_match = search(r"^(.+):", content)
         extracted_location = location_match.group(1) if location_match else location
 
         # Remove the location prefix for the condition text
@@ -151,10 +161,12 @@ class WttrInProvider(WeatherProvider):
             location=extracted_location,
             temperature="",  # wttr.in format=3 combines temp with condition
             condition=condition_text,
-            provider_link=provider_link
+            provider_link=provider_link,
         )
 
-    async def get_weather_image(self, location: str, units: str = None, language: str = None) -> Optional[bytes]:
+    async def get_weather_image(
+        self, location: str, units: str = None, language: str = None
+    ) -> Optional[bytes]:
         """Get weather image from wttr.in"""
         options = {}
         if language:
@@ -191,15 +203,15 @@ class WttrInProvider(WeatherProvider):
 
         # pull out the "moon_phase"
         moon_phase = moon_phase_json["weather"][0]["astronomy"][0]["moon_phase"]
-        moon_phase_illum = moon_phase_json["weather"][0]["astronomy"][0]["moon_illumination"]
+        moon_phase_illum = moon_phase_json["weather"][0]["astronomy"][0][
+            "moon_illumination"
+        ]
 
         # get the character associated with the current phase
         moon_phase_char = phase_char.get(moon_phase.lower(), "")
 
         return MoonPhaseData(
-            phase=moon_phase,
-            illumination=moon_phase_illum,
-            icon=moon_phase_char
+            phase=moon_phase, illumination=moon_phase_illum, icon=moon_phase_char
         )
 
 
@@ -217,14 +229,18 @@ class TestProvider(WeatherProvider):
     def supports_images(self) -> bool:
         return False
 
-    async def get_weather(self, location: str, units: str = None, language: str = None) -> WeatherData:
+    async def get_weather(
+        self, location: str, units: str = None, language: str = None
+    ) -> WeatherData:
         """Return fake weather data for testing"""
         # Generate some simple test data
         temp_unit = "°F" if units == "u" else "°C"
         temperature = f"72{temp_unit}" if units == "u" else f"22{temp_unit}"
 
         # Customize messages based on language if provided
-        greeting = "Sunny day in" if not language or language == "en" else "Día soleado en"
+        greeting = (
+            "Sunny day in" if not language or language == "en" else "Día soleado en"
+        )
 
         return WeatherData(
             location=location or "TestCity",
@@ -233,20 +249,18 @@ class TestProvider(WeatherProvider):
             humidity="50%",
             wind="5 mph" if units == "u" else "8 km/h",
             forecast=f"{greeting} {location or 'TestCity'}",
-            provider_link="https://example.com/test-weather"
+            provider_link="https://example.com/test-weather",
         )
 
-    async def get_weather_image(self, location: str, units: str = None, language: str = None) -> Optional[bytes]:
+    async def get_weather_image(
+        self, location: str, units: str = None, language: str = None
+    ) -> Optional[bytes]:
         """Test provider doesn't support images"""
         return None
 
     async def get_moon_phase(self) -> MoonPhaseData:
         """Return fake moon phase data for testing"""
-        return MoonPhaseData(
-            phase="Test Moon",
-            illumination="42",
-            icon="🌔"
-        )
+        return MoonPhaseData(phase="Test Moon", illumination="42", icon="🌔")
 
 
 class Config(BaseProxyConfig):
@@ -277,7 +291,7 @@ class WeatherBot(Plugin):
         # Initialize providers
         self._providers = {
             "wttr.in": WttrInProvider(self.http),
-            "test": TestProvider(self.http)
+            "test": TestProvider(self.http),
             # Add more providers as they're implemented
             # "openweathermap": OpenWeatherMapProvider(self.http, api_key),
             # "weatherapi": WeatherAPIProvider(self.http, api_key),
@@ -285,15 +299,19 @@ class WeatherBot(Plugin):
 
         # Set current provider from config
         provider_name = self.config.get("weather_provider", "wttr.in")
-        self._current_provider = self._providers.get(provider_name, self._providers["wttr.in"])
+        self._current_provider = self._providers.get(
+            provider_name, self._providers["wttr.in"]
+        )
 
     @classmethod
     def get_config_class(cls) -> Type[BaseProxyConfig]:
         return Config
 
     @command.new(
-        name="weather", help="Get the weather",
-        arg_fallthrough=False, require_subcommand=False
+        name="weather",
+        help="Get the weather",
+        arg_fallthrough=False,
+        require_subcommand=False,
     )
     @command.argument("location", pass_raw=True)
     async def weather_handler(self, evt: MessageEvent, location: str) -> None:
@@ -305,14 +323,16 @@ class WeatherBot(Plugin):
             weather_data = await self._current_provider.get_weather(
                 parsed_location,
                 units=self._stored_units,
-                language=self._stored_language
+                language=self._stored_language,
             )
             await evt.respond(weather_data.get_formatted_message())
 
             # Send weather image if enabled and supported
-            if (self.config["show_image"] and
-                    self._current_provider.supports_images and
-                    parsed_location):
+            if (
+                self.config["show_image"]
+                and self._current_provider.supports_images
+                and parsed_location
+            ):
                 await self._send_weather_image(evt, parsed_location)
 
         except Exception as e:
@@ -326,12 +346,15 @@ class WeatherBot(Plugin):
             # List available providers
             providers_list = ", ".join(self._providers.keys())
             current = self._current_provider.name
-            await evt.respond(f"Current provider: {current}\nAvailable providers: {providers_list}")
+            await evt.respond(
+                f"Current provider: {current}\nAvailable providers: {providers_list}"
+            )
             return
 
         if provider_name not in self._providers:
             await evt.respond(
-                f"Unknown provider: {provider_name}. Available providers: {', '.join(self._providers.keys())}")
+                f"Unknown provider: {provider_name}. Available providers: {', '.join(self._providers.keys())}"
+            )
             return
 
         self._current_provider = self._providers[provider_name]
@@ -409,9 +432,7 @@ class WeatherBot(Plugin):
     async def _send_weather_image(self, evt: MessageEvent, location: str) -> None:
         """Send weather image to chat if available"""
         image_data = await self._current_provider.get_weather_image(
-            location,
-            units=self._stored_units,
-            language=self._stored_language
+            location, units=self._stored_units, language=self._stored_language
         )
 
         if image_data:
@@ -419,20 +440,14 @@ class WeatherBot(Plugin):
             uri = await self.client.upload_media(
                 image_data, mime_type="image/png", filename=filename
             )
-            await self.client.send_image(
-                evt.room_id, url=uri, file_name=filename
-            )
+            await self.client.send_image(evt.room_id, url=uri, file_name=filename)
 
     def _config_value(self, name: str) -> str:
         """Get a configuration value with empty string fallback"""
-        return (
-            self.config[name].strip()
-            if self.config[name] is not None
-            else ""
-        )
+        return self.config[name].strip() if self.config[name] is not None else ""
 
     def _reset_stored_values(self) -> None:
         """Reset stored location, units and language"""
-        self._stored_language = ''
-        self._stored_location = ''
-        self._stored_units = ''
+        self._stored_language = ""
+        self._stored_location = ""
+        self._stored_units = ""

@@ -12,6 +12,8 @@ from maubot.handlers import command
 from mautrix.util.config import BaseProxyConfig, ConfigUpdateHelper
 from yarl import URL
 
+from .userprefs import UserPreferencesManager
+
 
 class WeatherData:
     """Class to standardize weather data across providers"""
@@ -283,6 +285,7 @@ class WeatherBot(Plugin):
     _stored_language: str
     _stored_location: str
     _stored_units: str
+    _userprefs: UserPreferencesManager
 
     async def start(self) -> None:
         await super().start()
@@ -297,7 +300,11 @@ class WeatherBot(Plugin):
             # "weatherapi": WeatherAPIProvider(self.http, api_key),
         }
 
-        # Set current provider from config
+        # Set up user preferences manager
+        self._userprefs = UserPreferencesManager(self.database, self.log)
+        await self._userprefs.init_db()
+
+        # Set current provider from config (will be overridden per-user)
         provider_name = self.config.get("weather_provider", "wttr.in")
         self._current_provider = self._providers.get(
             provider_name, self._providers["wttr.in"]
@@ -317,8 +324,14 @@ class WeatherBot(Plugin):
     async def weather_handler(self, evt: MessageEvent, location: str) -> None:
         """Listens for `!weather` and returns a message with the weather for the location"""
         self._reset_stored_values()
-        parsed_location = self._parse_location(location)
-
+        user_id = evt.sender
+        prefs = await self._userprefs.load_preferences_with_defaults(user_id, self.config, self._providers)
+        parsed_location = self._parse_location(location or prefs['location'])
+        # Use per-user or default provider
+        provider_name = prefs['provider']
+        self._current_provider = self._providers.get(provider_name, self._providers["wttr.in"])
+        self._stored_units = prefs['units']
+        self._stored_language = prefs['language']
         try:
             weather_data = await self._current_provider.get_weather(
                 parsed_location,
@@ -326,15 +339,13 @@ class WeatherBot(Plugin):
                 language=self._stored_language,
             )
             await evt.respond(weather_data.get_formatted_message())
-
             # Send weather image if enabled and supported
             if (
-                self.config["show_image"]
+                prefs['show_image']
                 and self._current_provider.supports_images
                 and parsed_location
             ):
                 await self._send_weather_image(evt, parsed_location)
-
         except Exception as e:
             await evt.respond(f"Error getting weather: {str(e)}")
 
@@ -342,6 +353,7 @@ class WeatherBot(Plugin):
     @command.argument("provider_name", required=False)
     async def set_provider(self, evt: MessageEvent, provider_name: str = None) -> None:
         """Set or view the current weather provider"""
+        user_id = evt.sender
         if not provider_name:
             # List available providers
             providers_list = ", ".join(self._providers.keys())
@@ -350,16 +362,14 @@ class WeatherBot(Plugin):
                 f"Current provider: {current}\nAvailable providers: {providers_list}"
             )
             return
-
         if provider_name not in self._providers:
             await evt.respond(
                 f"Unknown provider: {provider_name}. Available providers: {', '.join(self._providers.keys())}"
             )
             return
-
         self._current_provider = self._providers[provider_name]
-        # Optionally save to config
-        await evt.respond(f"Weather provider set to {provider_name}")
+        await self._userprefs.save_preference(user_id, 'provider', provider_name)
+        await evt.respond(f"Weather provider set to {provider_name} for you.")
 
     @weather_handler.subcommand("help", help="Usage instructions")
     async def help(self, evt: MessageEvent) -> None:
@@ -387,7 +397,10 @@ class WeatherBot(Plugin):
             "Options can be combined: `!weather Chicago l:es u:M`."
             "\n\n"
             "To change the weather provider, use: `!weather provider <name>`\n"
-            "To see available providers, use: `!weather provider`"
+            "To see available providers, use: `!weather provider`\n"
+            "To set your own preferences, use: `!weather pref <option> <value>`\n"
+            "To view your preferences, use: `!weather pref`\n"
+            "To clear your preferences, use: `!weather pref clear`\n"
         )
 
     @command.new(name="moon", help="Get the moon phase")
@@ -401,9 +414,9 @@ class WeatherBot(Plugin):
 
     def _parse_location(self, location: str = "") -> str:
         """Parse location string and extract units and language"""
+        # This function is now called with already merged user preference as fallback
         if not location:
-            location = self._config_value("default_location")
-
+            return ""
         # Parse units from location
         if "u:" in location:
             match = search(r"(\bu: *(?!l:)(\S+))", location, IGNORECASE)
@@ -413,9 +426,6 @@ class WeatherBot(Plugin):
                 if unit in ("u", "m", "M"):
                     self._stored_units = unit
                 location = location.replace(matches[0], "").strip()
-        else:
-            self._stored_units = self._config_value("default_units")
-
         # Parse language from location
         if "l:" in location:
             match = search(r"(\bl: *(?!u:)(\S+))", location, IGNORECASE)
@@ -423,9 +433,6 @@ class WeatherBot(Plugin):
                 matches = match.groups()
                 self._stored_language = matches[1]
                 location = location.replace(matches[0], "").strip()
-        else:
-            self._stored_language = self._config_value("default_language")
-
         self._stored_location = location.strip()
         return self._stored_location
 
@@ -443,8 +450,36 @@ class WeatherBot(Plugin):
             await self.client.send_image(evt.room_id, url=uri, file_name=filename)
 
     def _config_value(self, name: str) -> str:
-        """Get a configuration value with empty string fallback"""
+        """Get a configuration value with empty string fallback (legacy)"""
         return self.config[name].strip() if self.config[name] is not None else ""
+
+    @weather_handler.subcommand("pref", help="Set, view, or clear your weather preferences")
+    @command.argument("option", required=False)
+    @command.argument("value", required=False)
+    async def user_pref_handler(self, evt: MessageEvent, option: str = None, value: str = None) -> None:
+        """Set, view, or clear user preferences."""
+        user_id = evt.sender
+        valid_options = ["location", "units", "language", "show_image", "provider"]
+        if option is None:
+            prefs = await self._userprefs.load_preferences_with_defaults(user_id, self.config, self._providers)
+            msg = "Your preferences (including defaults):\n" + "\n".join(f"{k}: {v}" for k, v in prefs.items())
+            await evt.respond(msg)
+            return
+        if option == "clear":
+            await self._userprefs.clear_preferences(user_id)
+            await evt.respond("Your weather preferences have been cleared (server defaults will be used).")
+            return
+        if option not in valid_options:
+            await evt.respond(f"Unknown preference '{option}'. Valid options: {', '.join(valid_options)}")
+            return
+        if value is None:
+            await evt.respond(f"Please provide a value for '{option}'.")
+            return
+        # Type conversion for booleans
+        if option == "show_image":
+            value = value.lower() in ("1", "true", "yes", "on")
+        await self._userprefs.save_preference(user_id, option, value)
+        await evt.respond(f"Preference '{option}' set to '{value}' for you.")
 
     def _reset_stored_values(self) -> None:
         """Reset stored location, units and language"""

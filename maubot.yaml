@@ -1,9 +1,11 @@
 maubot: 0.1.0
 id: com.arachnitech.weather
-version: "0.4.1"
+version: "0.6.0"
 license: MIT
 modules:
 - weather
 main_class: WeatherBot
 extra_files:
 - base-config.yaml
+database: true
+database_type: asyncpg
